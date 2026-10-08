@@ -1,0 +1,6 @@
+{
+  "name": "Third Person Controller Boilerplate",
+  "description": "Web port of MaximeCrp's Godot 4 Third Person Controller Boilerplate featuring Mixamo character animations, smooth visuals rotation, camera clamping, and CSG sandbox physics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
