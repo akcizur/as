@@ -248,7 +248,9 @@ export default function App() {
           }}
           className="text-sm md:text-base font-display font-bold tracking-tight text-white whitespace-nowrap truncate"
         >
-          Third Person Controller
+          <span className="tracking-[0.08em]">OPENWORLD</span>
+          <span className="ml-2 font-normal text-amber-300">SIMULATION</span>
+          <span className="ml-2 rounded-md border border-amber-400/30 bg-amber-400/10 px-1.5 py-0.5 text-[10px] font-mono text-amber-200">v2.1</span>
         </a>
 
         {/* Zone 2: Clean text navigation links */}
@@ -259,69 +261,19 @@ export default function App() {
               e.preventDefault();
               setActiveTab('none');
             }}
-            className={`py-1 transition-colors whitespace-nowrap ${
-              activeTab === 'none'
-                ? 'text-white underline underline-offset-8 decoration-amber-400 decoration-2'
-                : 'hover:text-white hover:underline hover:underline-offset-8'
-            }`}
+            className={activeTab === 'none' ? 'py-1 text-white underline underline-offset-8 decoration-amber-400 decoration-2 whitespace-nowrap' : 'py-1 hover:text-white hover:underline hover:underline-offset-8 whitespace-nowrap'}
           >
-            Viewport
+            World
           </a>
           <a
-            href="#inspector"
+            href="#simulation"
             onClick={(e) => {
               e.preventDefault();
-              setActiveTab(activeTab === 'inspector' ? 'none' : 'inspector');
+              setActiveTab(activeTab === 'simulation' ? 'none' : 'simulation');
             }}
-            className={`py-1 transition-colors whitespace-nowrap ${
-              activeTab === 'inspector'
-                ? 'text-white underline underline-offset-8 decoration-amber-400 decoration-2'
-                : 'hover:text-white hover:underline hover:underline-offset-8'
-            }`}
+            className={activeTab === 'simulation' ? 'py-1 text-white underline underline-offset-8 decoration-amber-400 decoration-2 whitespace-nowrap' : 'py-1 hover:text-white hover:underline hover:underline-offset-8 whitespace-nowrap'}
           >
-            Inspector
-          </a>
-          <a
-            href="#scene-graph"
-            onClick={(e) => {
-              e.preventDefault();
-              setActiveTab(activeTab === 'scene_graph' ? 'none' : 'scene_graph');
-            }}
-            className={`py-1 transition-colors whitespace-nowrap ${
-              activeTab === 'scene_graph'
-                ? 'text-white underline underline-offset-8 decoration-amber-400 decoration-2'
-                : 'hover:text-white hover:underline hover:underline-offset-8'
-            }`}
-          >
-            Scene Graph
-          </a>
-          <a
-            href="#gdscript"
-            onClick={(e) => {
-              e.preventDefault();
-              setActiveTab(activeTab === 'gdscript' ? 'none' : 'gdscript');
-            }}
-            className={`py-1 transition-colors whitespace-nowrap ${
-              activeTab === 'gdscript'
-                ? 'text-white underline underline-offset-8 decoration-amber-400 decoration-2'
-                : 'hover:text-white hover:underline hover:underline-offset-8'
-            }`}
-          >
-            Export (.gd / HTML)
-          </a>
-          <a
-            href="#prd"
-            onClick={(e) => {
-              e.preventDefault();
-              setActiveTab(activeTab === 'prd' ? 'none' : 'prd');
-            }}
-            className={`py-1 transition-colors whitespace-nowrap ${
-              activeTab === 'prd'
-                ? 'text-white underline underline-offset-8 decoration-amber-400 decoration-2'
-                : 'hover:text-white hover:underline hover:underline-offset-8'
-            }`}
-          >
-            PRD v2.0
+            Simulation
           </a>
         </nav>
 
@@ -374,13 +326,13 @@ export default function App() {
             <RotateCcw className="w-3.5 h-3.5" />
           </button>
 
-          {/* Mobile Inspector Sheet Trigger */}
+          {/* Mobile Simulation Controls */}
           <button
-            onClick={() => setActiveTab(activeTab === 'none' ? 'inspector' : 'none')}
+            onClick={() => setActiveTab(activeTab === 'none' ? 'simulation' : 'none')}
             className="md:hidden min-h-[38px] inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-950 bg-amber-400 hover:bg-amber-300 rounded-lg transition-colors whitespace-nowrap"
           >
             <SlidersHorizontal className="w-3.5 h-3.5" />
-            <span>{activeTab === 'none' ? 'Settings' : 'Close'}</span>
+            <span>{activeTab === 'none' ? 'Simulation' : 'Close'}</span>
           </button>
 
           {effectiveInputDevice === 'keyboard' && (
@@ -389,7 +341,7 @@ export default function App() {
               className="hidden lg:inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-slate-950 bg-amber-400 hover:bg-amber-300 rounded-lg transition-colors whitespace-nowrap"
             >
               <Crosshair className="w-3.5 h-3.5" />
-              <span>{isPointerLocked ? 'Captured (ESC)' : 'Capture Mouse'}</span>
+              <span>{isPointerLocked ? 'Captured (ESC)' : 'Enter World'}</span>
             </button>
           )}
         </div>
@@ -428,7 +380,7 @@ export default function App() {
 
         <div className="px-3.5 py-2.5 rounded-2xl bg-slate-950/80 backdrop-blur-md border border-white/15 shadow-xl space-y-1.5 min-w-[215px]">
           <div className="flex items-center justify-between gap-3 text-xs text-slate-300">
-            <span className="font-display font-semibold text-white">CharacterBody3D</span>
+            <span className="font-display font-semibold text-white">PLAYER ENTITY</span>
             <span className="font-mono tabular-nums text-amber-300 uppercase">
               {telemetry.fsmState} · {telemetry.fps} FPS
             </span>
@@ -530,10 +482,9 @@ export default function App() {
         </div>
       )}
 
-      {/* Responsive Inspector / Scene Graph / GDScript & AIO Exporter / PRD v2.0 Drawer */}
+      {/* World simulation controls */}
       <ControllerDrawer
         activeTab={activeTab}
-        onSelectTab={setActiveTab}
         onClose={() => setActiveTab('none')}
         params={params}
         onChangeParams={setParams}
