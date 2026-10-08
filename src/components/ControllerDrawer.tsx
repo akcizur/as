@@ -1,17 +1,13 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
-  Copy,
-  Check,
   RotateCcw,
   Plus,
   Trash2,
-  Download,
   Eye,
   EyeOff,
   Volume2,
   VolumeX,
-  FileCode2,
 } from 'lucide-react';
 import {
   AnimationName,
@@ -22,8 +18,6 @@ import {
   ControllerParams,
   CSGBoxConfig,
   DEFAULT_CONTROLLER_PARAMS,
-  generateGdScript,
-  generateStandaloneAioHtml,
   GridTextureColor,
   InputPreference,
   JoystickMode,
@@ -32,11 +26,10 @@ import {
 } from '../types/controller';
 import { audioManager } from '../utils/audioManager';
 
-export type ActiveTab = 'none' | 'inspector' | 'scene_graph' | 'gdscript' | 'prd';
+export type ActiveTab = 'none' | 'simulation';
 
 export interface ControllerDrawerProps {
   activeTab: ActiveTab;
-  onSelectTab: (tab: ActiveTab) => void;
   onClose: () => void;
   params: ControllerParams;
   onChangeParams: (next: ControllerParams) => void;
@@ -59,7 +52,6 @@ const ANIMATION_CLIPS: { id: AnimationName; label: string; hotkey: string; mode:
 
 export const ControllerDrawer: React.FC<ControllerDrawerProps> = ({
   activeTab,
-  onSelectTab,
   onClose,
   params,
   onChangeParams,
@@ -70,9 +62,7 @@ export const ControllerDrawer: React.FC<ControllerDrawerProps> = ({
   onResetBoxes,
   onTriggerAnimation,
 }) => {
-  const [copied, setCopied] = useState(false);
-
-  const updateParam = <K extends keyof ControllerParams>(key: K, value: ControllerParams[K]) => {
+    const updateParam = <K extends keyof ControllerParams>(key: K, value: ControllerParams[K]) => {
     onChangeParams({ ...params, [key]: value });
   };
 
@@ -91,33 +81,6 @@ export const ControllerDrawer: React.FC<ControllerDrawerProps> = ({
   const handleResetDefaults = () => {
     clearPersistedParams();
     onChangeParams(DEFAULT_CONTROLLER_PARAMS);
-  };
-
-  const handleCopyGdScript = () => {
-    navigator.clipboard.writeText(generateGdScript(params));
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1800);
-  };
-
-  const handleDownloadGdScript = () => {
-    const blob = new Blob([generateGdScript(params)], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'player.gd';
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const handleDownloadAioHtml = () => {
-    const html = generateStandaloneAioHtml(params, boxes);
-    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'index.html';
-    a.click();
-    URL.revokeObjectURL(url);
   };
 
   const radToDeg = (r: number) => ((r * 180) / Math.PI).toFixed(1);
@@ -142,16 +105,10 @@ export const ControllerDrawer: React.FC<ControllerDrawerProps> = ({
           <div className="flex items-center justify-between px-5 py-3 border-b border-white/10 shrink-0">
             <div>
               <h2 className="text-base font-display font-semibold text-white">
-                {activeTab === 'inspector' && 'CharacterBody3D Inspector (v2.1)'}
-                {activeTab === 'scene_graph' && 'Godot 4 → Three.js Scene Graph'}
-                {activeTab === 'gdscript' && 'GDScript & AIO HTML Exporter'}
-                {activeTab === 'prd' && 'Product Requirements Document v2.0 / v2.1'}
+                Simulation Systems · v2.1
               </h2>
               <p className="text-xs text-slate-400">
-                {activeTab === 'inspector' && 'Auto-saved · Global Wind Particles · Bez mlhy'}
-                {activeTab === 'scene_graph' && '6 OBB obstacles · Wind Particles · Mixamo GLB'}
-                {activeTab === 'gdscript' && 'Export validated player.gd or single-file index.html'}
-                {activeTab === 'prd' && 'Kompletní specifikace M0–M17, algoritmy a architektura'}
+                Runtime controls · World atmosphere · Player physics
               </p>
             </div>
             <button
@@ -162,53 +119,9 @@ export const ControllerDrawer: React.FC<ControllerDrawerProps> = ({
             </button>
           </div>
 
-          {/* Mobile Segmented Tab Switcher */}
-          <div className="md:hidden grid grid-cols-4 gap-1 p-2 bg-slate-900/80 border-b border-white/10 shrink-0">
-            <button
-              onClick={() => onSelectTab('inspector')}
-              className={`min-h-[40px] px-2 py-1.5 text-xs font-medium rounded-lg transition-colors whitespace-nowrap ${
-                activeTab === 'inspector'
-                  ? 'bg-amber-400 text-slate-950 font-semibold'
-                  : 'text-slate-300 hover:text-white'
-              }`}
-            >
-              Inspector
-            </button>
-            <button
-              onClick={() => onSelectTab('scene_graph')}
-              className={`min-h-[40px] px-2 py-1.5 text-xs font-medium rounded-lg transition-colors whitespace-nowrap ${
-                activeTab === 'scene_graph'
-                  ? 'bg-amber-400 text-slate-950 font-semibold'
-                  : 'text-slate-300 hover:text-white'
-              }`}
-            >
-              Scene
-            </button>
-            <button
-              onClick={() => onSelectTab('gdscript')}
-              className={`min-h-[40px] px-2 py-1.5 text-xs font-medium rounded-lg transition-colors whitespace-nowrap ${
-                activeTab === 'gdscript'
-                  ? 'bg-amber-400 text-slate-950 font-semibold'
-                  : 'text-slate-300 hover:text-white'
-              }`}
-            >
-              Export
-            </button>
-            <button
-              onClick={() => onSelectTab('prd')}
-              className={`min-h-[40px] px-2 py-1.5 text-xs font-medium rounded-lg transition-colors whitespace-nowrap ${
-                activeTab === 'prd'
-                  ? 'bg-amber-400 text-slate-950 font-semibold'
-                  : 'text-slate-300 hover:text-white'
-              }`}
-            >
-              PRD v2.0
-            </button>
-          </div>
-
           {/* Drawer Content */}
           <div className="flex-1 overflow-y-auto p-5 space-y-6 text-sm">
-            {activeTab === 'inspector' && (
+            {activeTab === 'simulation' && (
               <>
                 {/* Section 1: Character Model (v2.1 GLB vs v2.0 Capsule), Input & Camera */}
                 <section className="space-y-3">
@@ -219,14 +132,14 @@ export const ControllerDrawer: React.FC<ControllerDrawerProps> = ({
                     <button
                       onClick={handleResetDefaults}
                       className="inline-flex items-center gap-1 text-xs text-amber-400 hover:text-amber-300 transition-colors whitespace-nowrap"
-                      title="Reset all parameters and clear localStorage"
+                      title="Restore the default simulation settings"
                     >
                       <RotateCcw className="w-3 h-3" />
-                      <span>Reset CFG</span>
+                      <span>Reset Defaults</span>
                     </button>
                   </div>
 
-                  {/* Character Mesh Switcher: v2.1 Mixamo GLB vs v2.0 Capsule Blockout */}
+                  {/* Character Mesh Switcher: v2.1 Mixamo GLB vs procedural capsule fallback */}
                   <div>
                     <div className="flex items-center justify-between text-xs text-slate-400 mb-1.5">
                       <span>Player Visuals Mesh</span>
@@ -337,7 +250,7 @@ export const ControllerDrawer: React.FC<ControllerDrawerProps> = ({
                   </div>
                 </section>
 
-                {/* Section 2: PRD v2.0 Section 6 Core Sliders (s_walk, s_run, s_jump, s_grav, s_shake, s_vol) */}
+                {/* Section 2: v2.1 runtime Section 6 Core Sliders (s_walk, s_run, s_jump, s_grav, s_shake, s_vol) */}
                 <section className="space-y-3 pt-4 border-t border-white/10">
                   <div className="flex items-center justify-between">
                     <h3 className="text-xs font-semibold text-slate-300">
@@ -710,14 +623,14 @@ export const ControllerDrawer: React.FC<ControllerDrawerProps> = ({
                   </div>
                 </section>
 
-                {/* Section 5: OBB Obstacles Sandbox */}
+                {/* Section 5: Sandbox Props Sandbox */}
                 <section className="space-y-3 pt-4 border-t border-white/10">
                   <div className="flex items-center justify-between">
                     <h3 className="text-xs font-semibold text-slate-300">
-                      05. map (OBB Obstacles · Layer WORLD 0x01)
+                      05. Sandbox Props & Traversal
                     </h3>
                     <span className="text-xs font-mono tabular-nums text-slate-400">
-                      {boxes.length} OBBs
+                      {boxes.length} world props
                     </span>
                   </div>
 
@@ -727,21 +640,21 @@ export const ControllerDrawer: React.FC<ControllerDrawerProps> = ({
                       className="min-h-[40px] flex items-center justify-center gap-1 px-2.5 py-2 rounded-lg bg-orange-500/15 hover:bg-orange-500/25 border border-orange-500/30 text-xs font-medium text-orange-200 transition-colors whitespace-nowrap"
                     >
                       <Plus className="w-3.5 h-3.5" />
-                      <span>1m OBB</span>
+                      <span>Crate · 1m</span>
                     </button>
                     <button
                       onClick={() => onSpawnBox('Red', [2, 2, 2])}
                       className="min-h-[40px] flex items-center justify-center gap-1 px-2.5 py-2 rounded-lg bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 text-xs font-medium text-red-200 transition-colors whitespace-nowrap"
                     >
                       <Plus className="w-3.5 h-3.5" />
-                      <span>2m OBB</span>
+                      <span>Block · 2m</span>
                     </button>
                     <button
                       onClick={() => onSpawnBox('Green', [3, 3, 3])}
                       className="min-h-[40px] flex items-center justify-center gap-1 px-2.5 py-2 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-xs font-medium text-emerald-200 transition-colors whitespace-nowrap"
                     >
                       <Plus className="w-3.5 h-3.5" />
-                      <span>3m OBB</span>
+                      <span>Pillar · 3m</span>
                     </button>
                   </div>
 
@@ -755,7 +668,7 @@ export const ControllerDrawer: React.FC<ControllerDrawerProps> = ({
                     <button
                       onClick={onResetBoxes}
                       className="min-h-[40px] inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-medium text-slate-300 transition-colors whitespace-nowrap"
-                      title="Restore PRD v2.0 6 OBB obstacles"
+                      title="Restore the default sandbox props"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                       <span>Reset 6 OBBs</span>
@@ -765,197 +678,6 @@ export const ControllerDrawer: React.FC<ControllerDrawerProps> = ({
               </>
             )}
 
-            {activeTab === 'scene_graph' && (
-              <div className="space-y-4">
-                <div className="p-3.5 rounded-lg bg-white/5 border border-white/10 font-mono text-xs space-y-2">
-                  <div className="text-slate-200 font-semibold">
-                    scene (THREE.Scene · Bez mlhy / No Fog)
-                  </div>
-                  <div className="pl-3 space-y-1.5 text-slate-300 border-l border-white/10">
-                    <div>
-                      sky <span className="text-slate-500">(Preetham, scale 45000)</span>
-                    </div>
-                    <div>
-                      sun <span className="text-slate-500">(DirectionalLight, 2048², PCFSoft)</span>
-                    </div>
-                    <div>
-                      hemi + env <span className="text-slate-500">(PMREM RoomEnvironment)</span>
-                    </div>
-                    <div>
-                      global_wind_particles{' '}
-                      <span className="text-amber-300">
-                        ({activeParticleCount} active · {params.windParticleStyle})
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-amber-300">map (THREE.Group)</span>
-                      <div className="pl-3 mt-1 space-y-1 text-slate-400 border-l border-white/10">
-                        <div>floor (r=500m, 1m grid tex, Layer WORLD 0x01)</div>
-                        {boxes.map((b) => (
-                          <div key={b.id} className="truncate">
-                            {b.id} ({b.size.join('×')}m, {b.color}, yaw {b.rotationY.toFixed(3)})
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    <div>
-                      <span className="text-amber-300">player (THREE.Group, world pos = feet)</span>
-                      <div className="pl-3 mt-1 space-y-1.5 text-slate-300 border-l border-white/10">
-                        <div>
-                          capsuleVsOBB{' '}
-                          <span className="text-slate-500">· R=0.3m, H=2.0m · Layer 0x02</span>
-                        </div>
-                        <div>
-                          visuals (THREE.Group){' '}
-                          <span className="text-amber-400 tabular-nums">
-                            rot.y = {radToDeg(telemetry.visualsRotationY)}°
-                          </span>
-                          <div className="pl-3 mt-1 space-y-1 text-slate-400 border-l border-white/10">
-                            {params.characterModelMode === 'mixamo_glb' ? (
-                              <>
-                                <div className="text-emerald-300">
-                                  mixamo_base.glb (65 bones, 6 clips)
-                                </div>
-                                <div>
-                                  AnimationMixer ·{' '}
-                                  <span className="text-amber-300">
-                                    {telemetry.currentAnimation}
-                                  </span>
-                                </div>
-                              </>
-                            ) : (
-                              <>
-                                <div className="text-emerald-300">
-                                  capsule_v2 (PRD v2.0 Blockout)
-                                </div>
-                                <div>body (#d54d43) + head (#f0c9a0) + nose (#55201a)</div>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                        <div>
-                          camMount (THREE.Group, y={params.cameraMountY.toFixed(3)}m){' '}
-                          <span className="text-cyan-400 tabular-nums">
-                            pitch = {radToDeg(telemetry.cameraPitchX)}°
-                          </span>
-                          <div className="pl-3 mt-1 text-slate-400 border-l border-white/10">
-                            camera (PerspectiveCamera, FOV {telemetry.currentFov.toFixed(0)}°)
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'gdscript' && (
-              <div className="space-y-4">
-                <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-400/30 space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-xs font-display font-semibold text-amber-200">
-                        Single-File AIO HTML Distribution (PRD v2.0)
-                      </h3>
-                      <p className="text-[11px] text-slate-300">
-                        Zero-build standalone <code className="text-white">index.html</code> with CDN
-                        importmap, ready for GitHub Pages.
-                      </p>
-                    </div>
-                    <button
-                      onClick={handleDownloadAioHtml}
-                      className="min-h-[38px] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-400 hover:bg-amber-300 text-xs font-semibold text-slate-950 transition-colors whitespace-nowrap shrink-0"
-                    >
-                      <FileCode2 className="w-3.5 h-3.5" />
-                      <span>Export index.html</span>
-                    </button>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-slate-400 font-mono">
-                    res://scripts/player.gd (M14 Validated)
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={handleCopyGdScript}
-                      className="min-h-[36px] inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-medium text-slate-200 transition-colors whitespace-nowrap"
-                    >
-                      {copied ? (
-                        <>
-                          <Check className="w-3.5 h-3.5 text-emerald-400" />
-                          <span>Copied</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-3.5 h-3.5" />
-                          <span>Copy</span>
-                        </>
-                      )}
-                    </button>
-                    <button
-                      onClick={handleDownloadGdScript}
-                      className="min-h-[36px] inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-white/10 hover:bg-white/15 border border-white/15 text-xs font-semibold text-white transition-colors whitespace-nowrap"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      <span>Export .gd</span>
-                    </button>
-                  </div>
-                </div>
-
-                <pre className="p-3.5 rounded-lg bg-slate-900/90 border border-white/10 text-[11px] leading-relaxed font-mono text-slate-200 overflow-x-auto">
-                  <code>{generateGdScript(params)}</code>
-                </pre>
-              </div>
-            )}
-
-            {activeTab === 'prd' && (
-              <div className="space-y-4 text-xs leading-relaxed text-slate-300">
-                <div className="p-3.5 rounded-lg bg-white/5 border border-white/10 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-display font-semibold text-white">
-                      PRD v2.0 / v2.1 — Executive Summary
-                    </h3>
-                    <span className="px-2 py-0.5 rounded bg-emerald-500/20 border border-emerald-500/40 text-[10px] font-mono text-emerald-300">
-                      M0–M17 DONE
-                    </span>
-                  </div>
-                  <p>
-                    Port <code className="text-amber-300">MaximeCrp/third-person-controller-boilerplate</code>{' '}
-                    (Godot 4.2) do WebGL 2 (Three.js). Scéna je vykreslena čistě <strong>bez mlhy</strong>{' '}
-                    a obohacena o globální větrný částicový systém (poletující lístky a prachové
-                    částice s nastavitelnou hustotou v Inspectoru).
-                  </p>
-                </div>
-
-                <div className="p-3.5 rounded-lg bg-white/5 border border-white/10 space-y-2">
-                  <h3 className="text-sm font-display font-semibold text-white">
-                    Global Wind Particle System (Bez mlhy)
-                  </h3>
-                  <p>
-                    Toroidní částicové pole (<code className="text-slate-100">36×9.5×36 m</code>)
-                    kolem hráče generuje až <code className="text-amber-300">360</code> aktivních
-                    částic (podzimní lístky s 3-osou rotací a sluncem nasvícené prachové částečky)
-                    unášených globálním větrem s nastavitelnou hustotou{' '}
-                    <code className="text-amber-300">wind_particle_density</code> a rychlostí{' '}
-                    <code className="text-amber-300">wind_speed</code>.
-                  </p>
-                </div>
-
-                <div className="p-3.5 rounded-lg bg-white/5 border border-white/10 space-y-2">
-                  <h3 className="text-sm font-display font-semibold text-white">
-                    Kolize & Fyzika (capsuleVsOBB + MTD)
-                  </h3>
-                  <p>
-                    Kapsle (<code className="text-slate-100">R=0.3m, H=2.0m</code>) je testována v
-                    lokálním souřadném systému každého ze 6 OBB kvádrů (rotace{' '}
-                    <code className="text-slate-100">-box.yaw</code>). Pomocí{' '}
-                    <strong>Minimum Translation Distance (MTD)</strong> vrací typ{' '}
-                    <code className="text-slate-100">top | bottom | side</code>.
-                  </p>
-                </div>
-              </div>
-            )}
           </div>
         </motion.aside>
       )}
