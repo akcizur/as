@@ -1,4 +1,4 @@
-# Openworld Simulation v2.2
+# Openworld Simulation v2.3
 
 **A playable third-person open-world sandbox built with Godot 4.6.1 and deployed to GitHub Pages.** The browser build is exported to WebAssembly using the Godot Compatibility renderer (WebGL 2.0).
 
@@ -6,8 +6,11 @@
 
 - Third-person player rendered with the repository's animated Mixamo GLB model.
 - Invisible `CharacterBody3D` capsule for reliable character collision; visuals and physics remain separate.
-- Camera-relative movement with acceleration, air control, smooth direction changes, sprinting, and jumping.
-- Blended idle, walking, and running animations.
+- Character-relative locomotion with acceleration, braking, air control, sprinting, and jumping.
+- Runtime AnimationTree and BlendSpace2D library with optional start/stop transitions, turn-in-place, 180-degree turn, directional dodge, crouch locomotion, aim locomotion, and upper-body aiming layers. Special transitions require matching clips in the model.
+- Crouch adjusts the physical collision capsule and checks overhead clearance before standing.
+- Root-motion extraction support for rigs with root/hips translation tracks. It is opt-in: configure use_root_motion and, when needed, root_motion_track in godot/scripts/player_controller.gd.
+- Keyboard/mouse, multitouch joystick/look/action buttons, and gamepad movement plus right-stick camera control.
 - Orbit camera pitch limits, collision raycast, smooth camera recovery, and a hard world-space floor guard.
 - Procedurally assembled frontier with hills, forest clusters, rocks, trails, an outpost, and supply pads.
 - Collidable terrain, trees, props, and spawned rigid-body crates.
@@ -24,9 +27,15 @@
 | Release mouse | Esc |
 | Sprint | Hold Shift |
 | Jump | Space |
+| Toggle crouch | C or Ctrl |
+| Aim | Hold right mouse button / gamepad left trigger |
+| Directional dodge | Q / gamepad left shoulder |
+| Turn around 180° | X / gamepad right-stick click |
 | Interact | E near a cache, relay, or beacon |
 | Spawn a physics crate | B |
 | Reset sandbox/player | R |
+
+On touch devices, use the left virtual joystick to move, drag on the right side to look, and use the action buttons. Multiple fingers are supported.
 
 The web version uses a single-threaded Godot export for broad hosting compatibility and does not require `SharedArrayBuffer` cross-origin isolation headers. Browser support requires WebAssembly and WebGL 2.0.
 
@@ -42,7 +51,8 @@ From the repository root:
 - **`bun run lint`** — scan the Godot project headlessly.
 - **`bun run dev:prototype`** — launch the retained React/Three.js prototype.
 - **`bun run build:prototype`** — build the legacy prototype separately.
-- **`godot/CONTROLLER.md`** — controller architecture, animation names, collision rules, and tuning controls.
+- **`godot/CONTROLLER.md`** — controller architecture, collision rules, and tuning controls.
+- **`godot/MOTION_LIBRARY.md`** — animation aliases, transition states, upper-body layers, and root-motion setup.
 
 ## Automatic GitHub Pages deployment
 
