@@ -241,13 +241,13 @@ func _physics_process(delta: float) -> void:
 		)
 
 	if Input.is_action_just_pressed("dodge") and was_on_floor and dodge_timer <= 0.0 and not turn_180_active:
-		_begin_dodge(input_dir, direction)
+		_begin_dodge(input_dir)
 
 	if dodge_timer > 0.0:
 		velocity.x = dodge_direction.x * dodge_speed
 		velocity.z = dodge_direction.z * dodge_speed
 		dodge_timer = maxf(0.0, dodge_timer - delta)
-	elif motion_library and motion_library.is_active() and motion_library.is_root_motion_active:
+	elif motion_library and motion_library.is_active() and bool(motion_library.get("is_root_motion_active")):
 		var root_delta: Vector3 = motion_library.get_root_motion_delta()
 		var world_delta := transform.basis * Vector3(root_delta.x, 0.0, root_delta.z)
 		velocity.x = world_delta.x / maxf(delta, 0.001)
@@ -265,7 +265,7 @@ func _physics_process(delta: float) -> void:
 	if motion_library:
 		motion_library.set_crouched(is_crouching)
 		motion_library.set_aiming(is_aiming)
-		_update_motion_animation(animation_direction, speed)
+		_update_motion_animation(animation_direction)
 
 	_update_camera_obstruction(delta)
 	move_and_slide()
@@ -316,7 +316,7 @@ func _physics_process(delta: float) -> void:
 			"crouched": is_crouching,
 			"aiming": is_aiming,
 			"dodging": dodge_timer > 0.0,
-			"root_motion": motion_library != null and motion_library.is_root_motion_active,
+			"root_motion": motion_library != null and bool(motion_library.get("is_root_motion_active")),
 			"grounded": is_on_floor(),
 			"fps": Engine.get_frames_per_second(),
 			"prompt": prompt,
@@ -345,12 +345,12 @@ func _has_standing_clearance() -> bool:
 	standing_shape.height = STANDING_CAPSULE_HEIGHT
 	var query := PhysicsShapeQueryParameters3D.new()
 	query.shape = standing_shape
-	query.transform = global_transform * Transform3D(Basis.IDENTITY, Vector3(0.0, STANDING_CAPSULE_HEIGHT * 0.5, 0.0))
+	query.transform = global_transform * Transform3D(Basis(), Vector3(0.0, STANDING_CAPSULE_HEIGHT * 0.5, 0.0))
 	query.collision_mask = collision_mask
 	query.exclude = [get_rid()]
 	return get_world_3d().direct_space_state.intersect_shape(query, 8).is_empty()
 
-func _begin_dodge(input_dir: Vector2, movement_direction: Vector3) -> void:
+func _begin_dodge(input_dir: Vector2) -> void:
 	var local := Vector3(input_dir.x, 0.0, input_dir.y)
 	if local.length_squared() < 0.01:
 		local = Vector3(0.0, 0.0, -1.0)
@@ -384,7 +384,7 @@ func _update_turn_180(delta: float) -> void:
 	if t >= 1.0:
 		turn_180_active = false
 
-func _update_motion_animation(animation_direction: Vector2, target_speed: float) -> void:
+func _update_motion_animation(animation_direction: Vector2) -> void:
 	if motion_library and motion_library.is_active():
 		var horizontal_speed := Vector2(velocity.x, velocity.z).length()
 		var normalized_speed := horizontal_speed / maxf(running_speed, 0.01)
