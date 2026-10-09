@@ -2,7 +2,7 @@ name: Motion Matching Compatibility Audit
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, docs/motion-matching-architecture]
     paths:
       - "godot/**"
       - "scripts/build-web.mjs"
