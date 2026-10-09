@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const root = process.cwd();
@@ -7,9 +7,12 @@ const projectPath = resolve(root, 'godot');
 const outputPath = resolve(root, 'dist');
 const executable = process.env.GODOT4 || process.env.GODOT || 'godot';
 
+if (existsSync(outputPath)) {
+  rmSync(outputPath, { recursive: true, force: true });
+}
 mkdirSync(outputPath, { recursive: true });
 
-console.log('Building Openworld Simulation v2.1 with ' + executable);
+console.log('Building Openworld Simulation v2.3 with ' + executable);
 const result = spawnSync(
   executable,
   ['--headless', '--path', projectPath, '--export-release', 'Web', resolve(outputPath, 'index.html')],
