@@ -18,7 +18,7 @@ func _ready() -> void:
 	var top_left := _make_panel(overlay, Control.PRESET_TOP_LEFT, Vector2(18.0, 18.0), Vector2(318.0, 110.0))
 	var title := _make_label("OPENWORLD  /  SIMULATION", 15, Color(0.96, 0.72, 0.28))
 	top_left.add_child(title)
-	var subtitle := _make_label("V2.2  ·  MIXAMO LOCOMOTION  ·  GODOT 4", 10, Color(0.58, 0.69, 0.79))
+	var subtitle := _make_label("V2.3  ·  ADVANCED MOTION  ·  GODOT 4", 10, Color(0.58, 0.69, 0.79))
 	top_left.add_child(subtitle)
 	objective_label = _make_label("OBJECTIVE   Explore the frontier", 12, Color(0.9, 0.94, 0.98))
 	top_left.add_child(objective_label)
@@ -32,10 +32,11 @@ func _ready() -> void:
 	resource_label.name = "ResourceLine"
 	top_right.add_child(resource_label)
 
-	var bottom_left := _make_panel(overlay, Control.PRESET_BOTTOM_LEFT, Vector2(18.0, -120.0), Vector2(390.0, 102.0))
-	bottom_left.add_child(_make_label("W A S D   MOVE     SHIFT   SPRINT     SPACE   JUMP", 10, Color(0.88, 0.92, 0.97)))
-	bottom_left.add_child(_make_label("MOUSE   LOOK     E   INTERACT     B   SPAWN CRATE", 10, Color(0.88, 0.92, 0.97)))
-	bottom_left.add_child(_make_label("R   RESET SANDBOX     ESC   RELEASE CURSOR", 10, Color(0.6, 0.71, 0.81)))
+	var bottom_left := _make_panel(overlay, Control.PRESET_BOTTOM_LEFT, Vector2(18.0, -138.0), Vector2(438.0, 120.0))
+	bottom_left.add_child(_make_label("WASD MOVE    SHIFT SPRINT    SPACE JUMP", 10, Color(0.88, 0.92, 0.97)))
+	bottom_left.add_child(_make_label("MOUSE LOOK    RMB AIM    C / CTRL CROUCH", 10, Color(0.88, 0.92, 0.97)))
+	bottom_left.add_child(_make_label("Q DODGE    X TURN 180    E INTERACT", 10, Color(0.88, 0.92, 0.97)))
+	bottom_left.add_child(_make_label("B SPAWN CRATE    R RESET    ESC RELEASE", 10, Color(0.6, 0.71, 0.81)))
 
 	var center_reticle := _make_label("＋", 18, Color(0.96, 0.78, 0.43))
 	center_reticle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
