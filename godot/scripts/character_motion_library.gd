@@ -349,6 +349,27 @@ func _add_transition(from_state: StringName, to_state: StringName, xfade: float)
 	transition.xfade_time = xfade
 	state_machine.add_transition(from_state, to_state, transition)
 
+func reset_motion() -> void:
+	# Clear any transient animation lock when the player is teleported/reset.
+	_action_locked = false
+	_action_timer = 0.0
+	_action_semantic = &""
+	_was_moving = false
+	_was_sprinting = false
+	is_crouched = false
+	is_aiming = false
+	is_airborne = false
+	if not ready_for_motion:
+		return
+	if not locomotion_parameter_path.is_empty():
+		animation_tree.set(locomotion_parameter_path, Vector2.ZERO)
+	if not crouch_parameter_path.is_empty():
+		animation_tree.set(crouch_parameter_path, Vector2.ZERO)
+	if not aim_parameter_path.is_empty():
+		animation_tree.set(aim_parameter_path, Vector2.ZERO)
+	_update_upper_body_weight()
+	_travel_to(BASE_LOCOMOTION)
+
 func set_motion(local_direction: Vector2, normalized_speed: float, sprinting: bool = false, crouched: bool = false, aiming: bool = false) -> void:
 	if not ready_for_motion:
 		return
