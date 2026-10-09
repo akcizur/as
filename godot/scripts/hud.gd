@@ -5,6 +5,7 @@ var position_label: Label
 var prompt_label: Label
 var notice_label: Label
 var objective_label: Label
+var resource_label: Label
 var notice_timer: float = 0.0
 
 func _ready() -> void:
@@ -27,7 +28,7 @@ func _ready() -> void:
 	top_right.add_child(telemetry_label)
 	position_label = _make_label("X 0.0   Y 0.0   Z 0.0", 10, Color(0.72, 0.8, 0.88))
 	top_right.add_child(position_label)
-	var resource_label := _make_label("FIELD PARTS   ∞ exploration", 10, Color(0.96, 0.72, 0.28))
+	resource_label = _make_label("FIELD PARTS   0", 10, Color(0.96, 0.72, 0.28))
 	resource_label.name = "ResourceLine"
 	top_right.add_child(resource_label)
 
@@ -128,6 +129,10 @@ func notify(message: String) -> void:
 func set_objective(message: String) -> void:
 	if is_instance_valid(objective_label):
 		objective_label.text = "OBJECTIVE   " + message
+
+func set_resource_count(count: int) -> void:
+	if is_instance_valid(resource_label):
+		resource_label.text = "FIELD PARTS   %d" % count
 
 func _process(delta: float) -> void:
 	if notice_timer > 0.0:
