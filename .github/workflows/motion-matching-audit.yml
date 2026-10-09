@@ -1,0 +1,63 @@
+name: Motion Matching Compatibility Audit
+
+on:
+  pull_request:
+    branches: [main, docs/motion-matching-architecture]
+    paths:
+      - "godot/**"
+      - "scripts/build-web.mjs"
+      - ".github/workflows/motion-matching-audit.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit-and-web-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Godot 4.6.1 and export templates
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.6.1
+          use-dotnet: false
+          include-templates: true
+
+      - name: Verify Godot version
+        run: godot --version
+
+      - name: Import project assets
+        run: godot --headless --editor --path godot --quit
+
+      - name: Audit Mixamo clips, skeleton and candidate root tracks
+        shell: bash
+        run: |
+          set -o pipefail
+          godot --headless --path godot --script res://scripts/motion_matching_asset_audit.gd 2>&1 | tee /tmp/motion-matching-audit.log
+          grep -q "MOTION_MATCHING_ASSET_AUDIT_BEGIN" /tmp/motion-matching-audit.log
+          grep -q "MOTION_MATCHING_ASSET_AUDIT_END" /tmp/motion-matching-audit.log
+
+      - name: Smoke-test the existing runtime
+        shell: bash
+        run: |
+          set -o pipefail
+          godot --headless --path godot --quit-after 8 2>&1 | tee /tmp/openworld-smoke.log
+          if grep -E "SCRIPT ERROR|Parse Error|Failed to load script" /tmp/openworld-smoke.log; then
+            echo "Godot runtime smoke test reported a script error."
+            exit 1
+          fi
+
+      - name: Build WebAssembly export
+        run: node scripts/build-web.mjs
+
+      - name: Verify Web export files
+        shell: bash
+        run: |
+          test -s dist/index.html
+          test -n "$(find dist -maxdepth 1 -type f -name "*.wasm" -print -quit)"
+          test -n "$(find dist -maxdepth 1 -type f -name "*.pck" -print -quit)"
+          echo "Web export passed basic file checks."
