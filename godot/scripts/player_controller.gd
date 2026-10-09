@@ -4,6 +4,7 @@ signal telemetry_changed(data: Dictionary)
 
 const CHARACTER_SCENE: PackedScene = preload("res://assets/models/mixamo_base.glb")
 const TOUCH_CONTROLS_SCRIPT: Script = preload("res://scripts/touch_controls.gd")
+const MOTION_LIBRARY_SCRIPT: Script = preload("res://scripts/character_motion_library.gd")
 const CAMERA_DISTANCE: float = 4.8
 const CAMERA_MIN_DISTANCE: float = 0.72
 const CAMERA_MIN_WORLD_Y: float = 0.35
@@ -28,6 +29,7 @@ var camera_pivot: Node3D
 var camera: Camera3D
 var body_visual: Node3D
 var animation_player: AnimationPlayer
+var motion_library: Node
 var touch_controls: CanvasLayer
 var touch_move_vector := Vector2.ZERO
 
@@ -78,10 +80,13 @@ func _create_character_visual() -> void:
 		push_warning("Mixamo model loaded, but no AnimationPlayer was found.")
 		return
 
-	if animation_player.has_animation(&"idle"):
-		_play_animation(&"idle")
-	else:
-		push_warning("Mixamo model is missing the expected 'idle' animation.")
+	# Advanced motion layer: AnimationTree + BlendSpace2D + optional air states.
+	motion_library = MOTION_LIBRARY_SCRIPT.new()
+	motion_library.name = "CharacterMotionLibrary"
+	add_child(motion_library)
+	if not motion_library.setup(animation_player):
+		if animation_player.has_animation(&"idle"):
+			_play_animation(&"idle")
 
 func _create_camera() -> void:
 	# Same gameplay hierarchy as the reference: player yaw -> camera mount -> camera pitch.
@@ -150,7 +155,6 @@ func _update_gamepad_look(delta: float) -> void:
 	if look.length_squared() < 0.04:
 		return
 
-	# Frame-rate independent stick look with a small deadzone.
 	var adjusted := look
 	var strength := (adjusted.length() - 0.2) / 0.8
 	adjusted = adjusted.normalized() * clampf(strength, 0.0, 1.0)
@@ -162,7 +166,8 @@ func _update_gamepad_look(delta: float) -> void:
 func _physics_process(delta: float) -> void:
 	_update_gamepad_look(delta)
 
-	if not is_on_floor():
+	var was_on_floor := is_on_floor()
+	if not was_on_floor:
 		velocity.y -= gravity_strength * delta
 	elif velocity.y < 0.0:
 		velocity.y = -0.2
@@ -170,7 +175,7 @@ func _physics_process(delta: float) -> void:
 	is_running = Input.is_action_pressed("run")
 	var speed := running_speed if is_running else walking_speed
 
-	if is_on_floor() and Input.is_action_just_pressed("jump"):
+	if was_on_floor and Input.is_action_just_pressed("jump"):
 		velocity.y = jump_velocity
 
 	# Reference gameplay is character-relative: WASD moves along the player's
@@ -183,11 +188,6 @@ func _physics_process(delta: float) -> void:
 	var visuals_direction := Vector3(input_dir.x, 0.0, input_dir.y).normalized()
 
 	if direction.length_squared() > 0.0001:
-		if is_running:
-			_play_animation(&"running")
-		else:
-			_play_animation(&"walking")
-
 		if visuals_direction.length_squared() > 0.0001:
 			body_visual.rotation.y = lerp_angle(
 				body_visual.rotation.y,
@@ -198,12 +198,24 @@ func _physics_process(delta: float) -> void:
 		velocity.x = direction.x * speed
 		velocity.z = direction.z * speed
 	else:
-		_play_animation(&"idle")
 		velocity.x = move_toward(velocity.x, 0.0, speed)
 		velocity.z = move_toward(velocity.z, 0.0, speed)
 
+	_update_motion_animation(input_dir)
 	_update_camera_obstruction(delta)
 	move_and_slide()
+
+	# Refine air/landing state after collision resolution.
+	if motion_library and motion_library.is_active():
+		if not is_on_floor():
+			if velocity.y > 0.15:
+				motion_library.set_air_state(&"Jump")
+			else:
+				motion_library.set_air_state(&"Fall")
+		elif not was_on_floor:
+			motion_library.set_air_state(&"Land")
+		else:
+			motion_library.set_air_state(&"Locomotion")
 
 	if global_position.y < -18.0:
 		var world := get_parent()
@@ -241,14 +253,17 @@ func _physics_process(delta: float) -> void:
 			"fps": Engine.get_frames_per_second(),
 			"prompt": prompt,
 			"gamepad": Input.get_connected_joypads().size() > 0,
-			"touch": DisplayServer.is_touchscreen_available()
+			"touch": DisplayServer.is_touchscreen_available(),
+			"motion_library": motion_library != null and motion_library.is_active()
 		})
 
-func _update_locomotion_animation(move_direction: Vector3) -> void:
-	# Kept as a compatibility hook for existing scene/script integrations.
-	_update_locomotion_animation_from_state()
+func _update_motion_animation(input_dir: Vector2) -> void:
+	if motion_library and motion_library.is_active():
+		var normalized_speed := Vector2(velocity.x, velocity.z).length() / maxf(running_speed, 0.01)
+		motion_library.set_motion(input_dir, normalized_speed)
+		return
 
-func _update_locomotion_animation_from_state() -> void:
+	# Safe fallback for models without a compatible animation set.
 	if animation_player == null:
 		return
 	if not is_on_floor():
@@ -256,6 +271,13 @@ func _update_locomotion_animation_from_state() -> void:
 			_play_animation(&"jump")
 		elif velocity.y < -0.15 and animation_player.has_animation(&"fall"):
 			_play_animation(&"fall")
+		return
+	if input_dir.length_squared() < 0.006:
+		_play_animation(&"idle")
+	elif is_running:
+		_play_animation(&"running")
+	else:
+		_play_animation(&"walking")
 
 func _play_animation(animation_name: StringName) -> void:
 	if animation_player == null or not animation_player.has_animation(animation_name):
