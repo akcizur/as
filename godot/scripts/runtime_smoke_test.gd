@@ -35,6 +35,9 @@ func _run() -> void:
 	if model == null or model.find_child("AnimationPlayer", true, false) == null:
 		_fail("Animated Mixamo player model or AnimationPlayer is missing.")
 		return
+	if player.get_node_or_null("TouchControls") == null:
+		_fail("Touch controls are not initialized for first-touch fallback.")
+		return
 
 	for action in ["move_forward", "move_back", "move_left", "move_right", "jump", "run", "crouch", "aim", "dodge", "turn_180", "interact", "spawn_crate", "reset_player"]:
 		if not InputMap.has_action(action):
@@ -56,12 +59,17 @@ func _run() -> void:
 	if int(game.get("resource_count")) != 1:
 		_fail("Supply interaction did not increment the resource count.")
 		return
+	player.call("_toggle_crouch")
+	if not bool(player.get("is_crouching")):
+		_fail("Crouch did not enter its expected state.")
+		return
 	game.call("reset_sandbox", player)
 	if int(game.get("resource_count")) != 0 or bool(cache.get("activated")):
 		_fail("Sandbox reset did not restore resources and interactable state.")
 		return
-	if player.is_crouching if false else false:
-		pass
+	if bool(player.get("is_crouching")) or absf((capsule.shape as CapsuleShape3D).height - 1.8) > 0.01:
+		_fail("Sandbox reset did not restore the standing player collision state.")
+		return
 
 	print("GAMEPLAY_RUNTIME_TEST_BEGIN")
 	print("Player, invisible capsule, animated model, camera, input actions, interactables, supply pickup and reset all passed.")
