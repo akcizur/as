@@ -11,10 +11,9 @@ var look_zone: Control
 var controls_root: Control
 
 func _ready() -> void:
-	if not DisplayServer.is_touchscreen_available():
-		queue_free()
-		return
-
+	# Start visible on phones/tablets; on desktop browsers wait for a real touch.
+	# The first touch reveals controls automatically without a settings screen.
+	visible = DisplayServer.is_touchscreen_available()
 	layer = 20
 	controls_root = Control.new()
 	controls_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -24,6 +23,10 @@ func _ready() -> void:
 	_create_look_zone()
 	_create_joystick()
 	_create_action_buttons()
+
+func _input(event: InputEvent) -> void:
+	if event is InputEventScreenTouch and (event as InputEventScreenTouch).pressed:
+		visible = true
 
 func _create_look_zone() -> void:
 	look_zone = Control.new()
