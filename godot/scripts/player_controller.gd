@@ -3,6 +3,7 @@ extends CharacterBody3D
 signal telemetry_changed(data: Dictionary)
 
 const CHARACTER_SCENE: PackedScene = preload("res://assets/models/mixamo_base.glb")
+const TOUCH_CONTROLS_SCRIPT: Script = preload("res://scripts/touch_controls.gd")
 const CAMERA_DISTANCE: float = 4.8
 const CAMERA_MIN_DISTANCE: float = 0.72
 const CAMERA_MIN_WORLD_Y: float = 0.35
@@ -19,6 +20,7 @@ const ANIMATION_BLEND: float = 0.18
 
 @export_group("Camera")
 @export var mouse_sensitivity: float = 0.0022
+@export var touch_look_sensitivity: float = 0.0038
 @export var camera_smoothness: float = 18.0
 @export var camera_pitch_min: float = -1.0
 @export var camera_pitch_max: float = 0.24
@@ -27,6 +29,8 @@ var camera_pivot: Node3D
 var camera: Camera3D
 var body_visual: Node3D
 var animation_player: AnimationPlayer
+var touch_controls: CanvasLayer
+var touch_move_vector := Vector2.ZERO
 
 var camera_pitch: float = -0.12
 var telemetry_clock: float = 0.0
@@ -44,6 +48,7 @@ func _ready() -> void:
 	_create_collision_capsule()
 	_create_character_visual()
 	_create_camera()
+	_create_touch_controls()
 
 func _create_collision_capsule() -> void:
 	# This collider is intentionally invisible. It is the authoritative player physics shape.
@@ -95,6 +100,28 @@ func _create_camera() -> void:
 	camera.current = true
 	camera_pivot.add_child(camera)
 
+func _create_touch_controls() -> void:
+	if not DisplayServer.is_touchscreen_available():
+		return
+	touch_controls = CanvasLayer.new()
+	touch_controls.name = "TouchControls"
+	touch_controls.set_script(TOUCH_CONTROLS_SCRIPT)
+	add_child(touch_controls)
+	touch_controls.move_changed.connect(_on_touch_move_changed)
+	touch_controls.look_delta.connect(_on_touch_look_delta)
+
+func _on_touch_move_changed(value: Vector2) -> void:
+	touch_move_vector = value
+
+func _on_touch_look_delta(delta: Vector2) -> void:
+	camera_pivot.rotation.y -= delta.x * touch_look_sensitivity
+	camera_pitch = clampf(
+		camera_pitch + delta.y * touch_look_sensitivity,
+		camera_pitch_min,
+		camera_pitch_max
+	)
+	camera_pivot.rotation.x = camera_pitch
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
@@ -103,7 +130,6 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		camera_pivot.rotation.y -= event.relative.x * mouse_sensitivity
 
-		# Moving the mouse up raises the camera and angles it down toward the player.
 		camera_pitch = clampf(
 			camera_pitch + event.relative.y * mouse_sensitivity,
 			camera_pitch_min,
@@ -113,6 +139,9 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _physics_process(delta: float) -> void:
 	var input_vector := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+	if touch_move_vector.length_squared() > 0.0025:
+		input_vector = touch_move_vector
+
 	var move_direction := Vector3(input_vector.x, 0.0, input_vector.y)
 	move_direction = move_direction.rotated(Vector3.UP, camera_pivot.rotation.y)
 	move_direction.y = 0.0
@@ -187,7 +216,9 @@ func _physics_process(delta: float) -> void:
 			"running": is_sprinting,
 			"grounded": is_on_floor(),
 			"fps": Engine.get_frames_per_second(),
-			"prompt": prompt
+			"prompt": prompt,
+			"gamepad": Input.get_connected_joypads().size() > 0,
+			"touch": DisplayServer.is_touchscreen_available()
 		})
 
 func _update_locomotion_animation(move_direction: Vector3) -> void:
