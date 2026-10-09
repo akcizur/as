@@ -10,20 +10,19 @@ const CAMERA_MIN_WORLD_Y: float = 0.35
 const ANIMATION_BLEND: float = 0.18
 
 @export_group("Locomotion")
-@export var walk_speed: float = 3.6
-@export var sprint_speed: float = 6.8
-@export var ground_acceleration: float = 20.0
-@export var air_acceleration: float = 7.0
-@export var ground_deceleration: float = 24.0
-@export var jump_velocity: float = 5.6
-@export var turn_smoothness: float = 12.0
+@export var walking_speed: float = 3.0
+@export var running_speed: float = 5.0
+@export var jump_velocity: float = 4.5
+@export var visuals_rotation_smoothness: float = 10.0
 
-@export_group("Camera")
-@export var mouse_sensitivity: float = 0.0022
+@export_group("Camera / Look")
+@export var horizontal_mouse_sensitivity: float = 0.001
+@export var vertical_mouse_sensitivity: float = 0.001
 @export var touch_look_sensitivity: float = 0.0038
+@export var gamepad_look_sensitivity: float = 2.6
 @export var camera_smoothness: float = 18.0
-@export var camera_pitch_min: float = -1.0
-@export var camera_pitch_max: float = 0.24
+@export var camera_pitch_min: float = -1.5708
+@export var camera_pitch_max: float = 0.7854
 
 var camera_pivot: Node3D
 var camera: Camera3D
@@ -34,7 +33,7 @@ var touch_move_vector := Vector2.ZERO
 
 var camera_pitch: float = -0.12
 var telemetry_clock: float = 0.0
-var is_sprinting: bool = false
+var is_running: bool = false
 var current_animation: StringName = &""
 var gravity_strength: float = float(ProjectSettings.get_setting("physics/3d/default_gravity"))
 
@@ -44,6 +43,7 @@ func _ready() -> void:
 	floor_snap_length = 0.3
 	floor_max_angle = deg_to_rad(48.0)
 	floor_constant_speed = true
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 	_create_collision_capsule()
 	_create_character_visual()
@@ -51,7 +51,7 @@ func _ready() -> void:
 	_create_touch_controls()
 
 func _create_collision_capsule() -> void:
-	# This collider is intentionally invisible. It is the authoritative player physics shape.
+	# Invisible authoritative physics shape. The Mixamo mesh is visual only.
 	var collider := CollisionShape3D.new()
 	collider.name = "InvisibleCollisionCapsule"
 	var capsule := CapsuleShape3D.new()
@@ -70,7 +70,6 @@ func _create_character_visual() -> void:
 	character.name = "mixamo_base"
 	body_visual.add_child(character)
 
-	# GLB origin is kept at the player's feet; the capsule stays 1.8 m tall.
 	if character is Node3D:
 		(character as Node3D).position = Vector3.ZERO
 
@@ -85,8 +84,9 @@ func _create_character_visual() -> void:
 		push_warning("Mixamo model is missing the expected 'idle' animation.")
 
 func _create_camera() -> void:
+	# Same gameplay hierarchy as the reference: player yaw -> camera mount -> camera pitch.
 	camera_pivot = Node3D.new()
-	camera_pivot.name = "CameraPivot"
+	camera_pivot.name = "CameraMount"
 	camera_pivot.position.y = 1.45
 	camera_pivot.rotation.x = camera_pitch
 	add_child(camera_pivot)
@@ -114,12 +114,16 @@ func _on_touch_move_changed(value: Vector2) -> void:
 	touch_move_vector = value
 
 func _on_touch_look_delta(delta: Vector2) -> void:
-	camera_pivot.rotation.y -= delta.x * touch_look_sensitivity
-	camera_pitch = clampf(
-		camera_pitch + delta.y * touch_look_sensitivity,
-		camera_pitch_min,
-		camera_pitch_max
-	)
+	_apply_look(delta.x * touch_look_sensitivity, delta.y * touch_look_sensitivity)
+
+func _apply_look(yaw_delta: float, pitch_delta: float) -> void:
+	# Reference gameplay: horizontal look rotates the player root, while the visual
+	# counter-rotates so the model does not snap with the camera.
+	rotate_y(-yaw_delta)
+	if body_visual:
+		body_visual.rotate_y(yaw_delta)
+
+	camera_pitch = clampf(camera_pitch + pitch_delta, camera_pitch_min, camera_pitch_max)
 	camera_pivot.rotation.x = camera_pitch
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -128,57 +132,76 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	elif event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-		camera_pivot.rotation.y -= event.relative.x * mouse_sensitivity
-
-		camera_pitch = clampf(
-			camera_pitch + event.relative.y * mouse_sensitivity,
-			camera_pitch_min,
-			camera_pitch_max
+		_apply_look(
+			event.relative.x * horizontal_mouse_sensitivity,
+			event.relative.y * vertical_mouse_sensitivity
 		)
-		camera_pivot.rotation.x = camera_pitch
+
+func _update_gamepad_look(delta: float) -> void:
+	var pads := Input.get_connected_joypads()
+	if pads.is_empty():
+		return
+
+	var device := pads[0]
+	var look := Vector2(
+		Input.get_joy_axis(device, JOY_AXIS_RIGHT_X),
+		Input.get_joy_axis(device, JOY_AXIS_RIGHT_Y)
+	)
+	if look.length_squared() < 0.04:
+		return
+
+	# Frame-rate independent stick look with a small deadzone.
+	var adjusted := look
+	var strength := (adjusted.length() - 0.2) / 0.8
+	adjusted = adjusted.normalized() * clampf(strength, 0.0, 1.0)
+	_apply_look(
+		adjusted.x * gamepad_look_sensitivity * delta,
+		adjusted.y * gamepad_look_sensitivity * delta
+	)
 
 func _physics_process(delta: float) -> void:
-	var input_vector := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
-	if touch_move_vector.length_squared() > 0.0025:
-		input_vector = touch_move_vector
-
-	var move_direction := Vector3(input_vector.x, 0.0, input_vector.y)
-	move_direction = move_direction.rotated(Vector3.UP, camera_pivot.rotation.y)
-	move_direction.y = 0.0
-	if move_direction.length_squared() > 1.0:
-		move_direction = move_direction.normalized()
-
-	is_sprinting = Input.is_action_pressed("run") and input_vector.length_squared() > 0.01
-	var target_speed := sprint_speed if is_sprinting else walk_speed
-	var acceleration := ground_acceleration if is_on_floor() else air_acceleration
-
-	# Vector acceleration preserves momentum through smooth starts and direction changes.
-	var horizontal_velocity := Vector3(velocity.x, 0.0, velocity.z)
-	var target_velocity := move_direction * target_speed
-	if input_vector.length_squared() > 0.01:
-		horizontal_velocity = horizontal_velocity.move_toward(target_velocity, acceleration * delta)
-	else:
-		horizontal_velocity = horizontal_velocity.move_toward(Vector3.ZERO, ground_deceleration * delta)
-	velocity.x = horizontal_velocity.x
-	velocity.z = horizontal_velocity.z
+	_update_gamepad_look(delta)
 
 	if not is_on_floor():
 		velocity.y -= gravity_strength * delta
 	elif velocity.y < 0.0:
 		velocity.y = -0.2
 
+	is_running = Input.is_action_pressed("run")
+	var speed := running_speed if is_running else walking_speed
+
 	if is_on_floor() and Input.is_action_just_pressed("jump"):
 		velocity.y = jump_velocity
 
-	if move_direction.length_squared() > 0.006:
-		var desired_yaw := atan2(-move_direction.x, -move_direction.z)
-		body_visual.rotation.y = lerp_angle(
-			body_visual.rotation.y,
-			desired_yaw,
-			minf(delta * turn_smoothness, 1.0)
-		)
+	# Reference gameplay is character-relative: WASD moves along the player's
+	# current facing direction. Mouse/right-stick look rotates the player itself.
+	var input_dir := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+	if touch_move_vector.length_squared() > 0.0025:
+		input_dir = touch_move_vector
 
-	_update_locomotion_animation(move_direction)
+	var direction := (transform.basis * Vector3(input_dir.x, 0.0, input_dir.y)).normalized()
+	var visuals_direction := Vector3(input_dir.x, 0.0, input_dir.y).normalized()
+
+	if direction.length_squared() > 0.0001:
+		if is_running:
+			_play_animation(&"running")
+		else:
+			_play_animation(&"walking")
+
+		if visuals_direction.length_squared() > 0.0001:
+			body_visual.rotation.y = lerp_angle(
+				body_visual.rotation.y,
+				atan2(-visuals_direction.x, -visuals_direction.z),
+				minf(delta * visuals_rotation_smoothness, 1.0)
+			)
+
+		velocity.x = direction.x * speed
+		velocity.z = direction.z * speed
+	else:
+		_play_animation(&"idle")
+		velocity.x = move_toward(velocity.x, 0.0, speed)
+		velocity.z = move_toward(velocity.z, 0.0, speed)
+
 	_update_camera_obstruction(delta)
 	move_and_slide()
 
@@ -213,7 +236,7 @@ func _physics_process(delta: float) -> void:
 		telemetry_changed.emit({
 			"position": global_position,
 			"speed": horizontal_speed,
-			"running": is_sprinting,
+			"running": is_running,
 			"grounded": is_on_floor(),
 			"fps": Engine.get_frames_per_second(),
 			"prompt": prompt,
@@ -222,26 +245,17 @@ func _physics_process(delta: float) -> void:
 		})
 
 func _update_locomotion_animation(move_direction: Vector3) -> void:
+	# Kept as a compatibility hook for existing scene/script integrations.
+	_update_locomotion_animation_from_state()
+
+func _update_locomotion_animation_from_state() -> void:
 	if animation_player == null:
 		return
-
-	var grounded := is_on_floor()
-	var moving := move_direction.length_squared() > 0.006
-	if not grounded:
+	if not is_on_floor():
 		if velocity.y > 0.15 and animation_player.has_animation(&"jump"):
 			_play_animation(&"jump")
 		elif velocity.y < -0.15 and animation_player.has_animation(&"fall"):
 			_play_animation(&"fall")
-		elif moving:
-			_play_animation(&"running" if is_sprinting else &"walking")
-		return
-
-	if not moving:
-		_play_animation(&"idle")
-	elif is_sprinting:
-		_play_animation(&"running")
-	else:
-		_play_animation(&"walking")
 
 func _play_animation(animation_name: StringName) -> void:
 	if animation_player == null or not animation_player.has_animation(animation_name):
@@ -268,9 +282,9 @@ func _update_camera_obstruction(delta: float) -> void:
 		target_distance = clampf(origin.distance_to(hit.position) - 0.2, CAMERA_MIN_DISTANCE, CAMERA_DISTANCE)
 
 	camera.position.z = lerpf(camera.position.z, target_distance, minf(delta * camera_smoothness, 1.0))
-	camera.fov = lerpf(camera.fov, 78.0 if is_sprinting else 72.0, minf(delta * 4.0, 1.0))
+	camera.fov = lerpf(camera.fov, 78.0 if is_running else 72.0, minf(delta * 4.0, 1.0))
 
-	# Hard floor guard: the camera's world-space Y can never pass below the ground plane.
+	# Hard floor guard: camera world-space Y can never pass below the ground plane.
 	var camera_world_position := camera.global_position
 	if camera_world_position.y < CAMERA_MIN_WORLD_Y:
 		camera_world_position.y = CAMERA_MIN_WORLD_Y
