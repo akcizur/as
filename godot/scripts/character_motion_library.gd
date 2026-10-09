@@ -27,6 +27,7 @@ var playback_parameter_path := PLAYBACK_PATH
 var ready_for_motion := false
 var is_crouched := false
 var is_aiming := false
+var is_airborne := false
 var is_root_motion_active := false
 var _action_locked := false
 var _action_timer := 0.0
@@ -255,7 +256,7 @@ func _build_animation_graph() -> void:
 
 	var state_names: Array[StringName] = []
 	for state_name in state_machine.get_node_list():
-		if state_name != BASE_LOCOMOTION:
+		if state_name != BASE_LOCOMOTION and state_name != &"Start" and state_name != &"End":
 			state_names.append(state_name)
 	for state_name in state_names:
 		_add_transition(BASE_LOCOMOTION, state_name, 0.1)
@@ -386,7 +387,7 @@ func set_motion(local_direction: Vector2, normalized_speed: float, sprinting: bo
 	_was_moving = moving
 	_was_sprinting = sprinting_now
 
-	if not _action_locked:
+	if not _action_locked and not is_airborne:
 		_travel_to(_preferred_locomotion_state())
 	_update_upper_body_weight()
 
@@ -401,12 +402,12 @@ func _preferred_locomotion_state() -> StringName:
 
 func set_crouched(value: bool) -> void:
 	is_crouched = value
-	if not _action_locked:
+	if not _action_locked and not is_airborne:
 		_travel_to(_preferred_locomotion_state())
 
 func set_aiming(value: bool) -> void:
 	is_aiming = value
-	if not _action_locked:
+	if not _action_locked and not is_airborne:
 		_travel_to(_preferred_locomotion_state())
 	_update_upper_body_weight()
 
@@ -435,7 +436,7 @@ func play_action(semantic: StringName) -> bool:
 		return false
 	var state_name: StringName = ACTION_STATES.get(semantic, &"")
 	if state_name == &"" or not state_machine.has_node(state_name):
-		if semantic.begins_with("dodge_") and state_machine.has_node(&"Dodge"):
+		if String(semantic).begins_with("dodge_") and state_machine.has_node(&"Dodge"):
 			state_name = &"Dodge"
 		else:
 			return false
@@ -457,13 +458,20 @@ func request_turn_in_place(yaw_delta: float) -> bool:
 func set_air_state(state: StringName) -> void:
 	if not ready_for_motion or playback == null:
 		return
+	if state == &"Jump" or state == &"Fall":
+		is_airborne = true
+		if _action_locked:
+			return
+		var air_target := state if state_machine.has_node(state) else BASE_LOCOMOTION
+		_travel_to(air_target)
+		return
+	is_airborne = false
 	if state == &"Land" and clips.has(&"land"):
 		play_action(&"land")
 		return
 	if _action_locked:
 		return
-	var target := state if state_machine.has_node(state) else _preferred_locomotion_state()
-	_travel_to(target)
+	_travel_to(_preferred_locomotion_state())
 
 func _travel_to(target: StringName) -> void:
 	if not ready_for_motion or playback == null or not state_machine.has_node(target):
