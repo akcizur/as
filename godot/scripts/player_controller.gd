@@ -75,6 +75,31 @@ func _ready() -> void:
 	_create_camera()
 	_create_touch_controls()
 
+func reset_motion_state() -> void:
+	# Shared by checkpoint respawn and full sandbox reset so temporary movement
+	# states cannot survive a teleport (for example a stuck dodge or crouch).
+	velocity = Vector3.ZERO
+	is_running = false
+	is_crouching = false
+	is_aiming = false
+	dodge_timer = 0.0
+	dodge_direction = Vector3.ZERO
+	turn_180_active = false
+	turn_180_elapsed = 0.0
+	turn_animation_cooldown = 0.0
+	touch_move_vector = Vector2.ZERO
+	rotation.y = 0.0
+	if body_visual:
+		body_visual.rotation.y = 0.0
+	if capsule_shape and collision_capsule:
+		capsule_shape.height = STANDING_CAPSULE_HEIGHT
+		collision_capsule.position.y = STANDING_CAPSULE_HEIGHT * 0.5
+	camera_pitch = -0.12
+	if camera_pivot:
+		camera_pivot.rotation.x = camera_pitch
+	if camera:
+		camera.position = Vector3(0.0, 0.22, CAMERA_DISTANCE)
+
 func _create_collision_capsule() -> void:
 	# Invisible authoritative collision shape; visuals never participate in physics.
 	collision_capsule = CollisionShape3D.new()
@@ -130,8 +155,8 @@ func _create_camera() -> void:
 	camera_pivot.add_child(camera)
 
 func _create_touch_controls() -> void:
-	if not DisplayServer.is_touchscreen_available():
-		return
+	# Create controls even when the browser does not report a touchscreen.
+	# On hybrid devices, the first real touch reveals them through _input().
 	touch_controls = CanvasLayer.new()
 	touch_controls.name = "TouchControls"
 	touch_controls.set_script(TOUCH_CONTROLS_SCRIPT)
@@ -171,6 +196,8 @@ func _input(event: InputEvent) -> void:
 	# simultaneous keyboard, pointer, touch, and controller actions.
 	if event is InputEventScreenTouch or event is InputEventScreenDrag:
 		active_input_source = "TOUCH"
+		if is_instance_valid(touch_controls) and touch_controls.has_method("reveal_controls"):
+			touch_controls.call("reveal_controls")
 	elif event is InputEventJoypadButton and (event as InputEventJoypadButton).pressed:
 		active_input_source = "GAMEPAD"
 	elif event is InputEventJoypadMotion:
