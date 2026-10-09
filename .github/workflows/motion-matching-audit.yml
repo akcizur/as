@@ -55,7 +55,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          godot --headless --path godot --path godot --quit-after 3 res://scenes/motion_matching_lab.tscn 2>&1 | tee /tmp/motion-matching-lab.log
+          godot --headless --path godot --quit-after 3 res://scenes/motion_matching_lab.tscn 2>&1 | tee /tmp/motion-matching-lab.log
           if grep -E "SCRIPT ERROR|Parse Error|Failed to load script|AnimationPlayer not found" /tmp/motion-matching-lab.log; then
             echo "Motion Matching lab reported a script or asset error."
             exit 1
