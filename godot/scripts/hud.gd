@@ -115,10 +115,17 @@ func update_telemetry(data: Dictionary) -> void:
 	if not is_instance_valid(telemetry_label):
 		return
 	var speed := float(data.get("speed", 0.0))
-	var running := bool(data.get("running", false))
 	var fps := int(data.get("fps", 60))
+	var input_source := str(data.get("input_source", "KEYBOARD/MOUSE"))
+	var source_label := {
+		"KEYBOARD": "KEYS",
+		"MOUSE": "MOUSE",
+		"TOUCH": "TOUCH",
+		"GAMEPAD": "PAD",
+		"KEYBOARD/MOUSE": "KEYS+MOUSE"
+	}.get(input_source, "AUTO")
 	var pos: Vector3 = data.get("position", Vector3.ZERO)
-	telemetry_label.text = "FPS %d  ·  %s  ·  %.1f M/S" % [fps, "SPRINT" if running else "WALK", speed]
+	telemetry_label.text = "FPS %d · %s · %.1f M/S" % [fps, source_label, speed]
 	position_label.text = "X %5.1f   Y %4.1f   Z %5.1f" % [pos.x, pos.y, pos.z]
 	prompt_label.text = str(data.get("prompt", ""))
 
