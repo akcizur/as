@@ -44,6 +44,7 @@ var animation_player: AnimationPlayer
 var motion_library: Node
 var touch_controls: CanvasLayer
 var touch_move_vector := Vector2.ZERO
+var active_input_source := "KEYBOARD/MOUSE"
 var collision_capsule: CollisionShape3D
 var capsule_shape: CapsuleShape3D
 
@@ -165,6 +166,24 @@ func _input_is_idle_for_turn() -> bool:
 	var keyboard_input := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	return keyboard_input.length_squared() < 0.01 and touch_move_vector.length_squared() < 0.01 and dodge_timer <= 0.0
 
+func _input(event: InputEvent) -> void:
+	# Source detection is informational only: Godot InputMap continues to accept
+	# simultaneous keyboard, pointer, touch, and controller actions.
+	if event is InputEventScreenTouch or event is InputEventScreenDrag:
+		active_input_source = "TOUCH"
+	elif event is InputEventJoypadButton and (event as InputEventJoypadButton).pressed:
+		active_input_source = "GAMEPAD"
+	elif event is InputEventJoypadMotion:
+		var joy_motion := event as InputEventJoypadMotion
+		if absf(joy_motion.axis_value) >= 0.18:
+			active_input_source = "GAMEPAD"
+	elif event is InputEventKey and (event as InputEventKey).pressed:
+		active_input_source = "KEYBOARD"
+	elif event is InputEventMouseButton and (event as InputEventMouseButton).pressed:
+		active_input_source = "MOUSE"
+	elif event is InputEventMouseMotion and (event as InputEventMouseMotion).relative.length_squared() > 1.0:
+		active_input_source = "MOUSE"
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
@@ -181,14 +200,18 @@ func _update_gamepad_look(delta: float) -> void:
 	if pads.is_empty():
 		return
 
-	var device := pads[0]
-	var look := Vector2(
-		Input.get_joy_axis(device, JOY_AXIS_RIGHT_X),
-		Input.get_joy_axis(device, JOY_AXIS_RIGHT_Y)
-	)
+	var look := Vector2.ZERO
+	for device in pads:
+		var candidate := Vector2(
+			Input.get_joy_axis(device, JOY_AXIS_RIGHT_X),
+			Input.get_joy_axis(device, JOY_AXIS_RIGHT_Y)
+		)
+		if candidate.length_squared() > look.length_squared():
+			look = candidate
 	if look.length_squared() < 0.04:
 		return
 
+	active_input_source = "GAMEPAD"
 	var strength := (look.length() - 0.2) / 0.8
 	var adjusted := look.normalized() * clampf(strength, 0.0, 1.0)
 	_apply_look(
@@ -224,9 +247,7 @@ func _physics_process(delta: float) -> void:
 	if was_on_floor and Input.is_action_just_pressed("jump") and not is_crouching:
 		velocity.y = jump_velocity
 
-	var input_dir := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
-	if touch_move_vector.length_squared() > 0.0025:
-		input_dir = touch_move_vector
+	var input_dir := _get_movement_input()
 
 	# BlendSpace2D uses positive Y for forward; Input.get_vector uses negative Y.
 	var animation_direction := Vector2(input_dir.x, -input_dir.y)
@@ -321,9 +342,18 @@ func _physics_process(delta: float) -> void:
 			"fps": Engine.get_frames_per_second(),
 			"prompt": prompt,
 			"gamepad": Input.get_connected_joypads().size() > 0,
+			"input_source": active_input_source,
 			"touch": DisplayServer.is_touchscreen_available(),
 			"motion_library": motion_library != null and motion_library.is_active()
 		})
+
+func _get_movement_input() -> Vector2:
+	var desktop_or_pad := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+	# Prefer whichever active source has the stronger deliberate input, allowing
+	# a controller or keyboard to take over immediately without resetting touch.
+	if touch_move_vector.length_squared() > 0.0025 and touch_move_vector.length_squared() > desktop_or_pad.length_squared():
+		return touch_move_vector
+	return desktop_or_pad
 
 func _toggle_crouch() -> void:
 	if is_crouching:
