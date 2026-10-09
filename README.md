@@ -9,14 +9,15 @@
 - Character-relative locomotion with acceleration, braking, air control, sprinting, and jumping.
 - Runtime AnimationTree and BlendSpace2D library with optional start/stop transitions, turn-in-place, 180-degree turn, directional dodge, crouch locomotion, aim locomotion, and upper-body aiming layers. Special transitions require matching clips in the model.
 - Crouch adjusts the physical collision capsule and checks overhead clearance before standing.
-- Root-motion extraction support for rigs with root/hips translation tracks. It is opt-in: configure use_root_motion and, when needed, root_motion_track in godot/scripts/player_controller.gd.
+- Root-motion extraction support for rigs with root/hips translation tracks. It is opt-in: configure `use_root_motion` and, when needed, `root_motion_track` in `godot/scripts/player_controller.gd`.
 - Keyboard/mouse, multitouch joystick/look/action buttons, and gamepad movement plus right-stick camera control.
 - Orbit camera pitch limits, collision raycast, smooth camera recovery, and a hard world-space floor guard.
 - Procedurally assembled frontier with hills, forest clusters, rocks, trails, an outpost, and supply pads.
 - Collidable terrain, trees, props, and spawned rigid-body crates.
 - Interactable supply caches, weather relay, and checkpoint beacon.
 - Daylight drift, atmosphere/fog toggle, checkpoint respawn, and full sandbox reset.
-- Minimal in-world HUD with FPS, speed, position, objective, interaction prompt, and keyboard hints.
+- Minimal objective/resource HUD that fades after inactivity; interaction prompts and notifications are contextual.
+- Touch controls fade to near-transparent when idle and reappear on touch.
 
 ## Controls
 
@@ -37,7 +38,7 @@
 
 ### Automatic device input
 
-The game accepts devices without a settings menu. Keyboard and mouse actions are active by default; connected gamepads are read through Godot's InputMap and the most responsive connected controller drives right-stick camera look. A HUD indicator reports the last active source (`KEYS`, `MOUSE`, `TOUCH`, or `PAD`). Touch controls start automatically on touchscreen devices and reveal on the first touch in desktop browsers. Touch joystick values combine with keyboard/gamepad movement and are clamped so diagonals do not move faster.
+The game accepts devices without a settings menu. Keyboard and mouse actions are active by default; connected gamepads are read through Godot's InputMap and the most responsive connected controller drives right-stick camera look. Touch controls start automatically on touchscreen devices. The ambient HUD reappears on input and fades after inactivity.
 
 | Action | Standard gamepad mapping |
 | --- | --- |
@@ -65,6 +66,7 @@ From the repository root:
 - **`bun run build:prototype`** — build the legacy prototype separately.
 - **`godot/CONTROLLER.md`** — controller architecture, collision rules, and tuning controls.
 - **`godot/MOTION_LIBRARY.md`** — animation aliases, transition states, upper-body layers, and root-motion setup.
+- **`godot/GAMEPLAY_UI.md`** — minimal gameplay UI behavior.
 
 ## Automatic GitHub Pages deployment
 
@@ -74,9 +76,13 @@ Live game: https://akcizur.github.io/as/
 
 If Pages has not been configured for this repository yet, select **Settings → Pages → Build and deployment → Source: GitHub Actions**.
 
+## Pre-release builds
+
+Push a tag such as `v2.4.0-beta.1`, `v2.4.0-alpha.1`, or `v2.4.0-rc.1` to create a GitHub pre-release. The workflow imports and smoke-tests the Godot project, performs a clean Web export, validates the generated files, and attaches a ZIP of the playable browser build plus a SHA-256 checksum file to the pre-release. The Pages deployment remains independent of release packaging.
+
 ## Controller reference
 
-The third-person controller's design is inspired by [MaximeCrp/third-person-controller-boilerplate](https://github.com/MaximeCrp/third-person-controller-boilerplate), particularly its Mixamo animation workflow, smooth visual rotation, and bounded orbit camera. The current game-specific implementation is in `godot/scripts/player_controller.gd`; the referenced project is not copied wholesale.
+The third-person controller's design is inspired by [MaximeCrp/third-person-controller-boilerplate](https://github.com/MaximeCrp/third-person-controller-boilerplate), particularly its Mixamo animation workflow, smooth visual rotation, and bounded orbit camera. The referenced project is not copied wholesale.
 
 ## Runtime boundaries
 
