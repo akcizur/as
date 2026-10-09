@@ -4,11 +4,15 @@
   "version": "2.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --port=3000 --host=0.0.0.0",
-    "build": "vite build",
-    "preview": "vite preview",
-    "clean": "rm -rf dist server.js",
-    "lint": "tsc --noEmit"
+    "dev": "godot --path godot",
+    "editor:game": "godot --editor --path godot",
+    "build": "godot --headless --path godot --export-release Web dist/index.html",
+    "build:prototype": "vite build",
+    "dev:prototype": "vite --port=3000 --host=0.0.0.0",
+    "preview:prototype": "vite preview",
+    "clean": "rm -rf dist godot/.godot",
+    "lint": "godot --headless --path godot --editor --quit",
+    "lint:prototype": "tsc --noEmit"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
