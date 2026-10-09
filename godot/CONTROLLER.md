@@ -12,7 +12,9 @@ This file documents the live Godot controller used by the GitHub Pages build.
 
 ## Locomotion behavior
 
-- WASD/arrows are character-relative. Horizontal mouse look and the gamepad right stick rotate the player root; the model counter-rotates for camera look, then smoothly faces movement.
+- WASD/arrows and gamepad left-stick movement are character-relative. Mouse look and the right stick on the most active connected controller rotate the player root; the model counter-rotates for camera look, then smoothly faces movement.
+- Keyboard/mouse, gamepad, and touch can be used without a mode selector. The controller records the last active source for HUD telemetry. Touch movement is combined with hardware movement and clamped to unit length; action inputs remain shared through Godot's InputMap.
+- Touch overlays are visible when the runtime reports a touchscreen and reveal automatically on the first detected touch otherwise. The left virtual stick handles movement, right side handles look, and action buttons can be pressed with multiple fingers.
 - Ground acceleration, braking, and air control are separate. Direction changes and movement starts no longer snap instantly.
 - Crouch toggles the invisible capsule from 1.8 m to 1.18 m and checks overhead clearance before restoring standing height.
 - The motion library builds AnimationTree + BlendSpace2D at runtime and discovers Mixamo animation aliases automatically. Missing specialized clips are optional and do not prevent regular locomotion.
@@ -36,6 +38,14 @@ This file documents the live Godot controller used by the GitHub Pages build.
 | Interact | E near an interactable |
 | Spawn a physics crate | B |
 | Reset sandbox | R |
+
+| Action | Standard gamepad mapping |
+| --- | --- |
+| Move / look | Left stick / right stick |
+| Jump / interact / spawn crate | A / X / B |
+| Sprint / dodge | Right shoulder (RB) / left shoulder (LB) |
+| Aim / crouch | Left trigger (LT) / left-stick click (L3) |
+| Turn around 180° / reset | Right-stick click (R3) / Y |
 
 ## Tuning
 
