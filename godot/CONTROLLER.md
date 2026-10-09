@@ -4,7 +4,7 @@ This file documents the live Godot controller used by the GitHub Pages build.
 
 ## Runtime ownership
 
-- `godot/scripts/player_controller.gd` owns player movement, camera input, locomotion animation selection, respawn triggers, and controller telemetry.
+- `godot/scripts/player_controller.gd` owns movement, crouch collision sizing, dodge impulses, the 180-degree turn, camera input, animation state updates, respawn triggers, and telemetry.
 - The player is a `CharacterBody3D`; collision is handled by an invisible 1.8 m capsule. The rendered character is loaded from `res://assets/models/mixamo_base.glb`.
 - The model asset is already tracked under `public/assets/models/`; the Godot project references the same Git blob at `godot/assets/models/mixamo_base.glb`, so there is no second copy of the binary data in Git history.
 - `godot/scripts/main.gd` remains responsible for world generation, interactables, checkpointing, weather, crates, and reset.
@@ -12,12 +12,13 @@ This file documents the live Godot controller used by the GitHub Pages build.
 
 ## Locomotion behavior
 
-- Input is camera-relative; forward follows the camera's horizontal yaw.
-- Ground acceleration and braking are separate from air control. The horizontal velocity is moved toward a target vector to give movement starts and direction changes some inertia.
-- Visual yaw eases toward the requested direction instead of snapping.
-- Animation names expected from the GLB are `idle`, `walking`, and `running`; `jump` and `fall` are optional.
-- Animation transitions blend over 0.18 seconds.
-- The orbit camera clamps vertical pitch, lerps toward its target distance, shortens on a ray hit, and clamps its world-space Y to at least 0.35 m.
+- WASD/arrows are character-relative. Horizontal mouse look and the gamepad right stick rotate the player root; the model counter-rotates for camera look, then smoothly faces movement.
+- Ground acceleration, braking, and air control are separate. Direction changes and movement starts no longer snap instantly.
+- Crouch toggles the invisible capsule from 1.8 m to 1.18 m and checks overhead clearance before restoring standing height.
+- The motion library builds AnimationTree + BlendSpace2D at runtime and discovers Mixamo animation aliases automatically. Missing specialized clips are optional and do not prevent regular locomotion.
+- Optional one-shot states include walk/run start-stop, turn-in-place, 180-degree turn, jump, fall, landing, and directional dodge. Aim/crouch BlendSpace2D states and an upper-body filtered overlay are created only if compatible clips and upper-body tracks are available.
+- Root-motion extraction is available for animations with actual horizontal translation on a root/hips bone. It is disabled by default because in-place Mixamo clips should be driven by the controller; enable `use_root_motion` and set `root_motion_track` when the source rig supports it.
+- The orbit camera clamps vertical pitch, lerps toward target distance, shortens on a ray hit, and clamps world-space Y to at least 0.35 m.
 
 ## Controls
 
@@ -28,12 +29,16 @@ This file documents the live Godot controller used by the GitHub Pages build.
 | Release cursor | Escape |
 | Sprint | Hold Shift |
 | Jump | Space |
+| Toggle crouch | C or Ctrl |
+| Aim | Hold right mouse button / gamepad left trigger |
+| Directional dodge | Q / gamepad left shoulder |
+| Turn around 180° | X / gamepad right-stick click |
 | Interact | E near an interactable |
 | Spawn a physics crate | B |
 | Reset sandbox | R |
 
 ## Tuning
 
-The exported settings at the top of `player_controller.gd` are the tuning surface. Prefer adjusting speed, acceleration, braking, air control, jump velocity, turn smoothing, sensitivity, and camera pitch limits before adding more controller states.
+The exported settings at the top of `player_controller.gd` tune speeds, acceleration, braking, dodge distance, 180-degree turn duration, and camera behavior. See `godot/MOTION_LIBRARY.md` for supported clip aliases, state transitions, upper-body layering, and root motion.
 
 The Godot Web export workflow is the production runtime. The retained React/Three.js implementation under `src/` is a separate legacy prototype, not the deployed Pages build.
