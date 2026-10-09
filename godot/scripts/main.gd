@@ -331,7 +331,7 @@ func spawn_crate(actor: Node3D) -> void:
 		_notify("SANDBOX LIMIT  /  RESET TO CLEAR PROPS")
 		return
 	var forward := -actor.global_basis.z
-	var camera_pivot := actor.get_node_or_null("CameraPivot") as Node3D
+	var camera_pivot := actor.get_node_or_null("CameraMount") as Node3D
 	if camera_pivot:
 		forward = -camera_pivot.global_basis.z
 	var crate := RigidBody3D.new()
@@ -363,7 +363,10 @@ func spawn_crate(actor: Node3D) -> void:
 
 func player_respawn(actor: Node3D) -> void:
 	actor.global_position = checkpoint_position
-	actor.set("velocity", Vector3.ZERO)
+	if actor.has_method("reset_motion_state"):
+		actor.call("reset_motion_state")
+	else:
+		actor.set("velocity", Vector3.ZERO)
 	_notify("RESPAWNED AT CHECKPOINT")
 
 func reset_sandbox(actor: Node3D) -> void:
@@ -379,7 +382,10 @@ func reset_sandbox(actor: Node3D) -> void:
 			candidate.call("reset_state")
 	checkpoint_position = Vector3(0.0, 0.2, 7.0)
 	actor.global_position = checkpoint_position
-	actor.set("velocity", Vector3.ZERO)
+	if actor.has_method("reset_motion_state"):
+		actor.call("reset_motion_state")
+	else:
+		actor.set("velocity", Vector3.ZERO)
 	weather_active = false
 	if world_environment:
 		world_environment.fog_density = 0.0018
