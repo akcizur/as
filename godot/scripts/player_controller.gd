@@ -349,11 +349,14 @@ func _physics_process(delta: float) -> void:
 
 func _get_movement_input() -> Vector2:
 	var desktop_or_pad := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
-	# Prefer whichever active source has the stronger deliberate input, allowing
-	# a controller or keyboard to take over immediately without resetting touch.
-	if touch_move_vector.length_squared() > 0.0025 and touch_move_vector.length_squared() > desktop_or_pad.length_squared():
-		return touch_move_vector
-	return desktop_or_pad
+	# Combine the virtual stick with keyboard/gamepad actions. Normalization keeps
+	# diagonals from moving faster and lets hybrid users mix sources naturally.
+	var combined := desktop_or_pad
+	if touch_move_vector.length_squared() > 0.0025:
+		combined += touch_move_vector
+	if combined.length_squared() > 1.0:
+		combined = combined.normalized()
+	return combined
 
 func _toggle_crouch() -> void:
 	if is_crouching:
