@@ -307,6 +307,8 @@ func interact_nearby(actor: Node3D) -> void:
 
 func add_resource(amount: int) -> void:
 	resource_count += amount
+	if is_instance_valid(hud) and hud.has_method("set_resource_count"):
+		hud.call("set_resource_count", resource_count)
 	_notify("FIELD PARTS +%d  /  TOTAL %d" % [amount, resource_count])
 
 func toggle_weather() -> void:
@@ -329,6 +331,9 @@ func spawn_crate(actor: Node3D) -> void:
 		_notify("SANDBOX LIMIT  /  RESET TO CLEAR PROPS")
 		return
 	var forward := -actor.global_basis.z
+	var camera_pivot := actor.get_node_or_null("CameraPivot") as Node3D
+	if camera_pivot:
+		forward = -camera_pivot.global_basis.z
 	var crate := RigidBody3D.new()
 	crate.name = "SpawnedCrate_%02d" % (spawned_crates.size() + 1)
 	crate.position = actor.global_position + forward * 2.4 + Vector3.UP * 1.4
@@ -367,6 +372,8 @@ func reset_sandbox(actor: Node3D) -> void:
 			crate.queue_free()
 	spawned_crates.clear()
 	resource_count = 0
+	if is_instance_valid(hud) and hud.has_method("set_resource_count"):
+		hud.call("set_resource_count", resource_count)
 	for candidate in get_tree().get_nodes_in_group("interactable"):
 		if is_instance_valid(candidate) and candidate.has_method("reset_state"):
 			candidate.call("reset_state")
