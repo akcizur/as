@@ -48,9 +48,7 @@ jobs:
           fi
 
       - name: Export Web build
-        run: |
-          mkdir -p dist
-          godot --headless --path godot --export-release "Web" "$GITHUB_WORKSPACE/dist/index.html"
+        run: node scripts/build-web.mjs
 
       - name: Verify Web export
         shell: bash
