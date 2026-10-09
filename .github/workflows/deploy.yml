@@ -1,4 +1,4 @@
-name: Deploy to GitHub Pages
+name: Build and Deploy Godot Web Game
 
 on:
   push:
@@ -21,22 +21,51 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Checkout
+      - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Set up Bun
-        uses: oven-sh/setup-bun@v2
+      - name: Install Godot 4.6.1 and Web export templates
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.6.1
+          use-dotnet: false
+          include-templates: true
 
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
+      - name: Verify engine
+        run: godot --version
 
-      - name: Build application
-        run: bun run build
+      - name: Import and scan project
+        run: godot --headless --editor --path godot --quit
+
+      - name: Smoke-test the game runtime
+        shell: bash
+        run: |
+          set -o pipefail
+          godot --headless --path godot --quit-after 8 2>&1 | tee /tmp/openworld-smoke.log
+          if grep -E "SCRIPT ERROR|Parse Error|Failed to load script|Parse Error:" /tmp/openworld-smoke.log; then
+            echo "Godot runtime smoke test reported a script error."
+            exit 1
+          fi
+
+      - name: Export Web build
+        run: |
+          mkdir -p dist
+          godot --headless --path godot --export-release "Web" "$GITHUB_WORKSPACE/dist/index.html"
+
+      - name: Verify Web export
+        shell: bash
+        run: |
+          test -s dist/index.html
+          test -n "$(find dist -maxdepth 1 -type f -name '*.wasm' -print -quit)"
+          test -n "$(find dist -maxdepth 1 -type f -name '*.pck' -print -quit)"
+          touch dist/.nojekyll
+          echo "Godot Web export looks complete:"
+          ls -lh dist
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
 
-      - name: Upload build artifact
+      - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: dist
