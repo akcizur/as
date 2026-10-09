@@ -402,11 +402,15 @@ func _preferred_locomotion_state() -> StringName:
 
 func set_crouched(value: bool) -> void:
 	is_crouched = value
+	if not ready_for_motion:
+		return
 	if not _action_locked and not is_airborne:
 		_travel_to(_preferred_locomotion_state())
 
 func set_aiming(value: bool) -> void:
 	is_aiming = value
+	if not ready_for_motion:
+		return
 	if not _action_locked and not is_airborne:
 		_travel_to(_preferred_locomotion_state())
 	_update_upper_body_weight()
