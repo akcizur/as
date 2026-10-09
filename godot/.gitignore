@@ -1,0 +1,4 @@
+# Godot generated editor cache and imports
+.godot/
+*.translation
+export.cfg
