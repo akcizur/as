@@ -1,107 +1,102 @@
 extends CanvasLayer
 
-var telemetry_label: Label
-var position_label: Label
-var prompt_label: Label
-var notice_label: Label
+const HUD_IDLE_DELAY := 4.0
+const HUD_FADE_SECONDS := 0.65
+const NOTICE_DURATION := 2.8
+
+var ambient_hud: Control
 var objective_label: Label
 var resource_label: Label
-var notice_timer: float = 0.0
+var reticle_label: Label
+var prompt_label: Label
+var notice_label: Label
+var idle_timer := HUD_IDLE_DELAY
+var ambient_alpha := 1.0
+var notice_timer := 0.0
+var previous_input_source := ""
 
 func _ready() -> void:
+	layer = 10
 	var overlay := Control.new()
 	overlay.name = "Overlay"
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(overlay)
 
-	var top_left := _make_panel(overlay, Control.PRESET_TOP_LEFT, Vector2(18.0, 18.0), Vector2(318.0, 110.0))
-	var title := _make_label("OPENWORLD  /  SIMULATION", 15, Color(0.96, 0.72, 0.28))
-	top_left.add_child(title)
-	var subtitle := _make_label("V2.3  ·  ADVANCED MOTION  ·  GODOT 4", 10, Color(0.58, 0.69, 0.79))
-	top_left.add_child(subtitle)
-	objective_label = _make_label("OBJECTIVE   Explore the frontier", 12, Color(0.9, 0.94, 0.98))
-	top_left.add_child(objective_label)
+	ambient_hud = Control.new()
+	ambient_hud.name = "AmbientHUD"
+	ambient_hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	ambient_hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay.add_child(ambient_hud)
 
-	var top_right := _make_panel(overlay, Control.PRESET_TOP_RIGHT, Vector2(-246.0, 18.0), Vector2(228.0, 88.0))
-	telemetry_label = _make_label("FPS 60  ·  WALK", 12, Color(0.42, 0.9, 0.78))
-	top_right.add_child(telemetry_label)
-	position_label = _make_label("X 0.0   Y 0.0   Z 0.0", 10, Color(0.72, 0.8, 0.88))
-	top_right.add_child(position_label)
-	resource_label = _make_label("FIELD PARTS   0", 10, Color(0.96, 0.72, 0.28))
-	resource_label.name = "ResourceLine"
-	top_right.add_child(resource_label)
+	objective_label = _make_label("EXPLORE THE FRONTIER", 12, Color(0.91, 0.94, 0.96, 0.92))
+	objective_label.position = Vector2(22.0, 20.0)
+	objective_label.size = Vector2(300.0, 24.0)
+	ambient_hud.add_child(objective_label)
 
-	var bottom_left := _make_panel(overlay, Control.PRESET_BOTTOM_LEFT, Vector2(18.0, -138.0), Vector2(438.0, 120.0))
-	bottom_left.add_child(_make_label("WASD MOVE    SHIFT SPRINT    SPACE JUMP", 10, Color(0.88, 0.92, 0.97)))
-	bottom_left.add_child(_make_label("MOUSE LOOK    RMB AIM    C / CTRL CROUCH", 10, Color(0.88, 0.92, 0.97)))
-	bottom_left.add_child(_make_label("Q DODGE    X TURN 180    E INTERACT", 10, Color(0.88, 0.92, 0.97)))
-	bottom_left.add_child(_make_label("B SPAWN CRATE    R RESET    ESC RELEASE", 10, Color(0.6, 0.71, 0.81)))
+	resource_label = _make_label("PARTS  0", 11, Color(0.91, 0.94, 0.96, 0.82))
+	resource_label.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	resource_label.offset_left = -132.0
+	resource_label.offset_top = 22.0
+	resource_label.offset_right = -22.0
+	resource_label.offset_bottom = 44.0
+	resource_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	ambient_hud.add_child(resource_label)
 
-	var center_reticle := _make_label("＋", 18, Color(0.96, 0.78, 0.43))
-	center_reticle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	center_reticle.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	center_reticle.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-	center_reticle.offset_left = -12.0
-	center_reticle.offset_top = -16.0
-	center_reticle.offset_right = 12.0
-	center_reticle.offset_bottom = 16.0
-	overlay.add_child(center_reticle)
+	reticle_label = _make_label("·", 24, Color(1.0, 1.0, 1.0, 0.42))
+	reticle_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	reticle_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	reticle_label.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	reticle_label.offset_left = -8.0
+	reticle_label.offset_top = -12.0
+	reticle_label.offset_right = 8.0
+	reticle_label.offset_bottom = 12.0
+	ambient_hud.add_child(reticle_label)
 
-	prompt_label = _make_label("", 12, Color(0.98, 0.82, 0.48))
+	prompt_label = _make_label("", 12, Color(0.98, 0.94, 0.82, 0.96))
 	prompt_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	prompt_label.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
 	prompt_label.offset_left = -260.0
-	prompt_label.offset_top = -88.0
+	prompt_label.offset_top = -86.0
 	prompt_label.offset_right = 260.0
-	prompt_label.offset_bottom = -52.0
+	prompt_label.offset_bottom = -54.0
+	prompt_label.visible = false
 	overlay.add_child(prompt_label)
 
-	notice_label = _make_label("CLICK TO ENTER THE WORLD", 13, Color(0.92, 0.96, 1.0))
+	notice_label = _make_label("", 12, Color(0.94, 0.96, 0.98))
 	notice_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	notice_label.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-	notice_label.offset_left = -260.0
-	notice_label.offset_top = 42.0
-	notice_label.offset_right = 260.0
+	notice_label.offset_left = -280.0
+	notice_label.offset_top = 48.0
+	notice_label.offset_right = 280.0
 	notice_label.offset_bottom = 78.0
+	notice_label.modulate.a = 0.0
 	overlay.add_child(notice_label)
 
-func _make_panel(parent: Control, preset: Control.LayoutPreset, anchor_offsets: Vector2, panel_size: Vector2) -> PanelContainer:
-	var panel := PanelContainer.new()
-	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	panel.set_anchors_and_offsets_preset(preset)
-	panel.size = panel_size
-	if preset == Control.PRESET_TOP_RIGHT:
-		panel.offset_left = anchor_offsets.x
-		panel.offset_top = anchor_offsets.y
-		panel.offset_right = -18.0
-		panel.offset_bottom = anchor_offsets.y + panel_size.y
-	elif preset == Control.PRESET_BOTTOM_LEFT:
-		panel.offset_left = anchor_offsets.x
-		panel.offset_top = anchor_offsets.y
-		panel.offset_right = anchor_offsets.x + panel_size.x
-		panel.offset_bottom = -18.0
-	else:
-		panel.offset_left = anchor_offsets.x
-		panel.offset_top = anchor_offsets.y
-		panel.offset_right = anchor_offsets.x + panel_size.x
-		panel.offset_bottom = anchor_offsets.y + panel_size.y
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.025, 0.045, 0.07, 0.82)
-	style.border_color = Color(0.52, 0.68, 0.78, 0.24)
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(8)
-	style.content_margin_left = 13.0
-	style.content_margin_right = 13.0
-	style.content_margin_top = 10.0
-	style.content_margin_bottom = 9.0
-	panel.add_theme_stylebox_override("panel", style)
-	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", 5)
-	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	panel.add_child(column)
-	parent.add_child(panel)
-	return panel
+func _input(event: InputEvent) -> void:
+	if event is InputEventMouseMotion:
+		if (event as InputEventMouseMotion).relative.length_squared() > 0.8:
+			_mark_activity()
+	elif event is InputEventScreenTouch:
+		if (event as InputEventScreenTouch).pressed:
+			_mark_activity()
+	elif event is InputEventScreenDrag:
+		_mark_activity()
+	elif event is InputEventKey:
+		if (event as InputEventKey).pressed and not (event as InputEventKey).echo:
+			_mark_activity()
+	elif event is InputEventMouseButton:
+		if (event as InputEventMouseButton).pressed:
+			_mark_activity()
+	elif event is InputEventJoypadButton:
+		if (event as InputEventJoypadButton).pressed:
+			_mark_activity()
+	elif event is InputEventJoypadMotion:
+		if absf((event as InputEventJoypadMotion).axis_value) > 0.18:
+			_mark_activity()
+
+func _mark_activity() -> void:
+	idle_timer = HUD_IDLE_DELAY
 
 func _make_label(text_value: String, font_size: int, color: Color) -> Label:
 	var label := Label.new()
@@ -112,44 +107,47 @@ func _make_label(text_value: String, font_size: int, color: Color) -> Label:
 	return label
 
 func update_telemetry(data: Dictionary) -> void:
-	if not is_instance_valid(telemetry_label):
+	if not is_instance_valid(ambient_hud):
 		return
 	var speed := float(data.get("speed", 0.0))
-	var fps := int(data.get("fps", 60))
-	var input_source := str(data.get("input_source", "KEYBOARD/MOUSE"))
-	var source_label: String = str({
-		"KEYBOARD": "KEYS",
-		"MOUSE": "MOUSE",
-		"TOUCH": "TOUCH",
-		"GAMEPAD": "PAD",
-		"KEYBOARD/MOUSE": "KEYS+MOUSE"
-	}.get(input_source, "AUTO"))
-	var pos: Vector3 = data.get("position", Vector3.ZERO)
-	telemetry_label.text = "FPS %d · %s · %.1f M/S" % [fps, source_label, speed]
-	position_label.text = "X %5.1f   Y %4.1f   Z %5.1f" % [pos.x, pos.y, pos.z]
-	prompt_label.text = str(data.get("prompt", ""))
+	if speed > 0.12:
+		_mark_activity()
+	var input_source := str(data.get("input_source", ""))
+	if not input_source.is_empty() and input_source != previous_input_source:
+		previous_input_source = input_source
+		_mark_activity()
+	var prompt := str(data.get("prompt", ""))
+	prompt_label.text = prompt
+	prompt_label.visible = not prompt.is_empty()
 
 func notify(message: String) -> void:
-	if is_instance_valid(notice_label):
-		notice_label.text = message
-		notice_timer = 3.2
+	if not is_instance_valid(notice_label):
+		return
+	notice_label.text = message
+	notice_timer = NOTICE_DURATION
+	notice_label.modulate.a = 1.0
+	_mark_activity()
 
 func set_objective(message: String) -> void:
 	if is_instance_valid(objective_label):
-		objective_label.text = "OBJECTIVE   " + message
+		objective_label.text = message.to_upper()
+		_mark_activity()
 
 func set_resource_count(count: int) -> void:
 	if is_instance_valid(resource_label):
-		resource_label.text = "FIELD PARTS   %d" % count
+		resource_label.text = "PARTS  %d" % count
+		_mark_activity()
 
 func _process(delta: float) -> void:
+	idle_timer = maxf(0.0, idle_timer - delta)
+	var target_alpha := 1.0 if idle_timer > 0.0 else 0.0
+	ambient_alpha = move_toward(ambient_alpha, target_alpha, delta / HUD_FADE_SECONDS)
+	if is_instance_valid(ambient_hud):
+		ambient_hud.modulate.a = ambient_alpha
+
 	if notice_timer > 0.0:
-		notice_timer -= delta
+		notice_timer = maxf(0.0, notice_timer - delta)
 		if is_instance_valid(notice_label):
-			notice_label.modulate.a = clampf(notice_timer * 1.8, 0.0, 1.0)
-	else:
-		if is_instance_valid(notice_label) and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-			notice_label.modulate.a = 0.0
-		elif is_instance_valid(notice_label):
-			notice_label.modulate.a = 1.0
-			notice_label.text = "CLICK TO ENTER THE WORLD"
+			notice_label.modulate.a = clampf(notice_timer / 0.35, 0.0, 1.0)
+	elif is_instance_valid(notice_label):
+		notice_label.modulate.a = 0.0
