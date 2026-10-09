@@ -72,8 +72,8 @@ func _create_joystick() -> void:
 	joystick.offset_top = -190.0
 	joystick.offset_right = 178.0
 	joystick.offset_bottom = -40.0
-	controls_root.add_child(joystick)
 	joystick.set_script(JOYSTICK_SCRIPT)
+	controls_root.add_child(joystick)
 	joystick.changed.connect(func(value: Vector2): move_changed.emit(value))
 
 func _create_action_buttons() -> void:
