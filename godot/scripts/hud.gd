@@ -117,13 +117,13 @@ func update_telemetry(data: Dictionary) -> void:
 	var speed := float(data.get("speed", 0.0))
 	var fps := int(data.get("fps", 60))
 	var input_source := str(data.get("input_source", "KEYBOARD/MOUSE"))
-	var source_label := {
+	var source_label: String = str({
 		"KEYBOARD": "KEYS",
 		"MOUSE": "MOUSE",
 		"TOUCH": "TOUCH",
 		"GAMEPAD": "PAD",
 		"KEYBOARD/MOUSE": "KEYS+MOUSE"
-	}.get(input_source, "AUTO")
+	}.get(input_source, "AUTO"))
 	var pos: Vector3 = data.get("position", Vector3.ZERO)
 	telemetry_label.text = "FPS %d · %s · %.1f M/S" % [fps, source_label, speed]
 	position_label.text = "X %5.1f   Y %4.1f   Z %5.1f" % [pos.x, pos.y, pos.z]
