@@ -6,13 +6,14 @@
   "scripts": {
     "dev": "godot --path godot",
     "editor:game": "godot --editor --path godot",
-    "build": "godot --headless --path godot --export-release Web dist/index.html",
+    "build": "node scripts/build-web.mjs",
     "build:prototype": "vite build",
     "dev:prototype": "vite --port=3000 --host=0.0.0.0",
     "preview:prototype": "vite preview",
     "clean": "rm -rf dist godot/.godot",
     "lint": "godot --headless --path godot --editor --quit",
-    "lint:prototype": "tsc --noEmit"
+    "lint:prototype": "tsc --noEmit",
+    "build:web": "node scripts/build-web.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
