@@ -5,7 +5,6 @@ extends Node
 
 signal state_changed(state: StringName)
 
-const LOCOMOTION_SPACE := "parameters/Locomotion/blend_position"
 const PLAYBACK_PATH := "parameters/playback"
 
 var animation_player: AnimationPlayer
@@ -15,6 +14,7 @@ var locomotion: AnimationNodeBlendSpace2D
 var playback: AnimationNodeStateMachinePlayback
 var clips: Dictionary = {}
 var current_state: StringName = &"Locomotion"
+var locomotion_parameter_path := "parameters/blend_position"
 var ready_for_motion := false
 
 func setup(source: AnimationPlayer) -> bool:
@@ -122,9 +122,10 @@ func _build_tree() -> void:
 
 	var needs_air_states := clips.has(&"jump") or clips.has(&"fall") or clips.has(&"land")
 	if not needs_air_states:
+		locomotion_parameter_path = "parameters/blend_position"
 		animation_tree.tree_root = locomotion
 		animation_tree.active = true
-		animation_tree.set(LOCOMOTION_SPACE, Vector2.ZERO)
+		animation_tree.set(locomotion_parameter_path, Vector2.ZERO)
 		return
 
 	state_machine = AnimationNodeStateMachine.new()
@@ -142,12 +143,13 @@ func _build_tree() -> void:
 		_add_transition("Locomotion", "Land", 0.08)
 		_add_transition("Land", "Locomotion", 0.12)
 
+	locomotion_parameter_path = "parameters/Locomotion/blend_position"
 	animation_tree.tree_root = state_machine
 	animation_tree.active = true
 	playback = animation_tree.get(PLAYBACK_PATH) as AnimationNodeStateMachinePlayback
 	if playback:
 		playback.start("Locomotion")
-	animation_tree.set(LOCOMOTION_SPACE, Vector2.ZERO)
+	animation_tree.set(locomotion_parameter_path, Vector2.ZERO)
 
 func _add_transition(from: StringName, to: StringName, xfade: float) -> void:
 	var transition := AnimationNodeStateMachineTransition.new()
@@ -161,7 +163,7 @@ func set_motion(local_direction: Vector2, normalized_speed: float) -> void:
 	if target.length_squared() > 1.0:
 		target = target.normalized()
 	target *= clampf(normalized_speed, 0.0, 1.0)
-	animation_tree.set(LOCOMOTION_SPACE, target)
+	animation_tree.set(locomotion_parameter_path, target)
 
 func set_air_state(state: StringName) -> void:
 	if not ready_for_motion or playback == null:
