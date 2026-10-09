@@ -35,6 +35,18 @@
 | Spawn a physics crate | B |
 | Reset sandbox/player | R |
 
+### Automatic device input
+
+The game accepts devices without a settings menu. Keyboard and mouse actions are active by default; connected gamepads are read through Godot's InputMap and the most responsive connected controller drives right-stick camera look. A HUD indicator reports the last active source (`KEYS`, `MOUSE`, `TOUCH`, or `PAD`). Touch controls start automatically on touchscreen devices and reveal on the first touch in desktop browsers. Touch joystick values combine with keyboard/gamepad movement and are clamped so diagonals do not move faster.
+
+| Action | Standard gamepad mapping |
+| --- | --- |
+| Move / look | Left stick / right stick |
+| Jump / interact / spawn | A / X / B |
+| Sprint / dodge | Right shoulder (RB) / left shoulder (LB) |
+| Aim / crouch | Left trigger (LT) / left-stick click (L3) |
+| Turn around 180° / reset | Right-stick click (R3) / Y |
+
 On touch devices, use the left virtual joystick to move, drag on the right side to look, and use the action buttons. Multiple fingers are supported.
 
 The web version uses a single-threaded Godot export for broad hosting compatibility and does not require `SharedArrayBuffer` cross-origin isolation headers. Browser support requires WebAssembly and WebGL 2.0.
