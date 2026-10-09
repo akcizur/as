@@ -1,7 +1,7 @@
 {
   "name": "openworld-sandbox",
   "private": true,
-  "version": "2.1.0",
+  "version": "2.3.0",
   "type": "module",
   "scripts": {
     "dev": "godot --path godot",
@@ -12,6 +12,7 @@
     "preview:prototype": "vite preview",
     "clean": "rm -rf dist godot/.godot",
     "lint": "godot --headless --path godot --editor --quit",
+    "test:runtime": "godot --headless --path godot --script res://scripts/runtime_smoke_test.gd",
     "lint:prototype": "tsc --noEmit",
     "build:web": "node scripts/build-web.mjs"
   },

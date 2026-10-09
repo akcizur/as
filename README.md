@@ -61,7 +61,8 @@ From the repository root:
 - **`bun run dev`** — run the game in Godot.
 - **`bun run editor:game`** — open the Godot editor for project development.
 - **`bun run build`** — export the project in `godot/` to `dist/`.
-- **`bun run lint`** — scan the Godot project headlessly.
+- **`bun run lint`** — import/scan the Godot project headlessly.
+- **`bun run test:runtime`** — assert the player, capsule, camera, Mixamo animation node, input map, interactables, supply pickup and full reset.
 - **`bun run dev:prototype`** — launch the retained React/Three.js prototype.
 - **`bun run build:prototype`** — build the legacy prototype separately.
 - **`godot/CONTROLLER.md`** — controller architecture, collision rules, and tuning controls.
@@ -70,7 +71,7 @@ From the repository root:
 
 ## Automatic GitHub Pages deployment
 
-Every push to `main` and manual workflow dispatch runs the deployment workflow. GitHub Actions installs Godot 4.6.1 plus matching Web export templates, scans and smoke-tests the game, exports it to `dist/`, checks for the HTML, WebAssembly, and PCK payload, and publishes the artifact through GitHub Pages.
+Every push to `main` and manual workflow dispatch runs the deployment workflow. GitHub Actions installs Godot 4.6.1 plus matching Web export templates, imports and smoke-tests the game, asserts the production player/camera/collision/interactions/reset behavior, exports it to `dist/`, checks for the HTML, WebAssembly, and PCK payload, and publishes the artifact through GitHub Pages.
 
 Live game: https://akcizur.github.io/as/
 

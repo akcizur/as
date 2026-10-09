@@ -34,6 +34,9 @@ func _input(event: InputEvent) -> void:
 	elif event is InputEventScreenDrag:
 		_mark_activity()
 
+func reveal_controls() -> void:
+	_mark_activity()
+
 func _mark_activity() -> void:
 	idle_timer = IDLE_DELAY
 	visible = true
