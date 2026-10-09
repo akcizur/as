@@ -9,12 +9,24 @@ const CAMERA_DISTANCE: float = 4.8
 const CAMERA_MIN_DISTANCE: float = 0.72
 const CAMERA_MIN_WORLD_Y: float = 0.35
 const ANIMATION_BLEND: float = 0.18
+const STANDING_CAPSULE_HEIGHT: float = 1.8
+const CROUCHED_CAPSULE_HEIGHT: float = 1.18
 
 @export_group("Locomotion")
 @export var walking_speed: float = 3.0
 @export var running_speed: float = 5.0
+@export var aiming_speed: float = 2.2
+@export var crouching_speed: float = 1.55
+@export var ground_acceleration: float = 18.0
+@export var ground_braking: float = 22.0
+@export var air_control: float = 5.0
 @export var jump_velocity: float = 4.5
 @export var visuals_rotation_smoothness: float = 10.0
+@export var dodge_speed: float = 8.8
+@export var dodge_duration: float = 0.24
+@export var turn_180_duration: float = 0.42
+@export var use_root_motion: bool = false
+@export var root_motion_track: NodePath = NodePath("")
 
 @export_group("Camera / Look")
 @export var horizontal_mouse_sensitivity: float = 0.001
@@ -32,12 +44,22 @@ var animation_player: AnimationPlayer
 var motion_library: Node
 var touch_controls: CanvasLayer
 var touch_move_vector := Vector2.ZERO
+var collision_capsule: CollisionShape3D
+var capsule_shape: CapsuleShape3D
 
 var camera_pitch: float = -0.12
 var telemetry_clock: float = 0.0
 var is_running: bool = false
+var is_crouching: bool = false
+var is_aiming: bool = false
 var current_animation: StringName = &""
 var gravity_strength: float = float(ProjectSettings.get_setting("physics/3d/default_gravity"))
+var dodge_timer: float = 0.0
+var dodge_direction := Vector3.ZERO
+var turn_180_active: bool = false
+var turn_180_elapsed: float = 0.0
+var turn_180_start_yaw: float = 0.0
+var turn_animation_cooldown: float = 0.0
 
 func _ready() -> void:
 	name = "Player"
@@ -53,15 +75,15 @@ func _ready() -> void:
 	_create_touch_controls()
 
 func _create_collision_capsule() -> void:
-	# Invisible authoritative physics shape. The Mixamo mesh is visual only.
-	var collider := CollisionShape3D.new()
-	collider.name = "InvisibleCollisionCapsule"
-	var capsule := CapsuleShape3D.new()
-	capsule.radius = 0.32
-	capsule.height = 1.8
-	collider.shape = capsule
-	collider.position.y = 0.9
-	add_child(collider)
+	# Invisible authoritative collision shape; visuals never participate in physics.
+	collision_capsule = CollisionShape3D.new()
+	collision_capsule.name = "InvisibleCollisionCapsule"
+	capsule_shape = CapsuleShape3D.new()
+	capsule_shape.radius = 0.32
+	capsule_shape.height = STANDING_CAPSULE_HEIGHT
+	collision_capsule.shape = capsule_shape
+	collision_capsule.position.y = STANDING_CAPSULE_HEIGHT * 0.5
+	add_child(collision_capsule)
 
 func _create_character_visual() -> void:
 	body_visual = Node3D.new()
@@ -80,16 +102,17 @@ func _create_character_visual() -> void:
 		push_warning("Mixamo model loaded, but no AnimationPlayer was found.")
 		return
 
-	# Advanced motion layer: AnimationTree + BlendSpace2D + optional air states.
 	motion_library = MOTION_LIBRARY_SCRIPT.new()
 	motion_library.name = "CharacterMotionLibrary"
 	add_child(motion_library)
-	if not motion_library.setup(animation_player):
+	if motion_library.setup(animation_player):
+		motion_library.configure_root_motion(use_root_motion, root_motion_track)
+	else:
 		if animation_player.has_animation(&"idle"):
 			_play_animation(&"idle")
 
 func _create_camera() -> void:
-	# Same gameplay hierarchy as the reference: player yaw -> camera mount -> camera pitch.
+	# Player yaw -> camera mount -> camera pitch, following the reference-controller pattern.
 	camera_pivot = Node3D.new()
 	camera_pivot.name = "CameraMount"
 	camera_pivot.position.y = 1.45
@@ -122,14 +145,25 @@ func _on_touch_look_delta(delta: Vector2) -> void:
 	_apply_look(delta.x * touch_look_sensitivity, delta.y * touch_look_sensitivity)
 
 func _apply_look(yaw_delta: float, pitch_delta: float) -> void:
-	# Reference gameplay: horizontal look rotates the player root, while the visual
-	# counter-rotates so the model does not snap with the camera.
-	rotate_y(-yaw_delta)
-	if body_visual:
-		body_visual.rotate_y(yaw_delta)
+	# Normal camera look rotates player yaw and counter-rotates visuals.
+	# A deliberate 180 turn owns the yaw while it is active.
+	if not turn_180_active:
+		rotate_y(-yaw_delta)
+		if body_visual:
+			body_visual.rotate_y(yaw_delta)
+		if absf(yaw_delta) >= 0.075 and turn_animation_cooldown <= 0.0 and _input_is_idle_for_turn():
+			if motion_library and motion_library.is_active():
+				if motion_library.request_turn_in_place(yaw_delta):
+					turn_animation_cooldown = 0.62
 
 	camera_pitch = clampf(camera_pitch + pitch_delta, camera_pitch_min, camera_pitch_max)
 	camera_pivot.rotation.x = camera_pitch
+
+func _input_is_idle_for_turn() -> bool:
+	if not is_on_floor():
+		return false
+	var keyboard_input := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+	return keyboard_input.length_squared() < 0.01 and touch_move_vector.length_squared() < 0.01 and dodge_timer <= 0.0
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
@@ -155,9 +189,8 @@ func _update_gamepad_look(delta: float) -> void:
 	if look.length_squared() < 0.04:
 		return
 
-	var adjusted := look
-	var strength := (adjusted.length() - 0.2) / 0.8
-	adjusted = adjusted.normalized() * clampf(strength, 0.0, 1.0)
+	var strength := (look.length() - 0.2) / 0.8
+	var adjusted := look.normalized() * clampf(strength, 0.0, 1.0)
 	_apply_look(
 		adjusted.x * gamepad_look_sensitivity * delta,
 		adjusted.y * gamepad_look_sensitivity * delta
@@ -165,6 +198,15 @@ func _update_gamepad_look(delta: float) -> void:
 
 func _physics_process(delta: float) -> void:
 	_update_gamepad_look(delta)
+	turn_animation_cooldown = maxf(0.0, turn_animation_cooldown - delta)
+
+	if Input.is_action_just_pressed("turn_180"):
+		_begin_turn_180()
+	_update_turn_180(delta)
+
+	if Input.is_action_just_pressed("crouch"):
+		_toggle_crouch()
+	is_aiming = Input.is_action_pressed("aim")
 
 	var was_on_floor := is_on_floor()
 	if not was_on_floor:
@@ -172,40 +214,62 @@ func _physics_process(delta: float) -> void:
 	elif velocity.y < 0.0:
 		velocity.y = -0.2
 
-	is_running = Input.is_action_pressed("run")
+	is_running = Input.is_action_pressed("run") and not is_crouching and not is_aiming
 	var speed := running_speed if is_running else walking_speed
+	if is_crouching:
+		speed = crouching_speed
+	elif is_aiming:
+		speed = aiming_speed
 
-	if was_on_floor and Input.is_action_just_pressed("jump"):
+	if was_on_floor and Input.is_action_just_pressed("jump") and not is_crouching:
 		velocity.y = jump_velocity
 
-	# Reference gameplay is character-relative: WASD moves along the player's
-	# current facing direction. Mouse/right-stick look rotates the player itself.
 	var input_dir := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	if touch_move_vector.length_squared() > 0.0025:
 		input_dir = touch_move_vector
 
-	var direction := (transform.basis * Vector3(input_dir.x, 0.0, input_dir.y)).normalized()
-	var visuals_direction := Vector3(input_dir.x, 0.0, input_dir.y).normalized()
+	# BlendSpace2D uses positive Y for forward; Input.get_vector uses negative Y.
+	var animation_direction := Vector2(input_dir.x, -input_dir.y)
+	var local_direction := Vector3(input_dir.x, 0.0, input_dir.y)
+	var direction := (transform.basis * local_direction).normalized()
 
-	if direction.length_squared() > 0.0001:
-		if visuals_direction.length_squared() > 0.0001:
-			body_visual.rotation.y = lerp_angle(
-				body_visual.rotation.y,
-				atan2(-visuals_direction.x, -visuals_direction.z),
-				minf(delta * visuals_rotation_smoothness, 1.0)
-			)
+	if input_dir.length_squared() > 0.0001 and not turn_180_active:
+		body_visual.rotation.y = lerp_angle(
+			body_visual.rotation.y,
+			atan2(-input_dir.x, -input_dir.y),
+			minf(delta * visuals_rotation_smoothness, 1.0)
+		)
 
-		velocity.x = direction.x * speed
-		velocity.z = direction.z * speed
+	if Input.is_action_just_pressed("dodge") and was_on_floor and dodge_timer <= 0.0 and not turn_180_active:
+		_begin_dodge(input_dir, direction)
+
+	if dodge_timer > 0.0:
+		velocity.x = dodge_direction.x * dodge_speed
+		velocity.z = dodge_direction.z * dodge_speed
+		dodge_timer = maxf(0.0, dodge_timer - delta)
+	elif motion_library and motion_library.is_active() and motion_library.is_root_motion_active:
+		var root_delta: Vector3 = motion_library.get_root_motion_delta()
+		var world_delta := transform.basis * Vector3(root_delta.x, 0.0, root_delta.z)
+		velocity.x = world_delta.x / maxf(delta, 0.001)
+		velocity.z = world_delta.z / maxf(delta, 0.001)
+	elif direction.length_squared() > 0.0001:
+		var target_velocity := direction * speed
+		var acceleration := ground_acceleration if was_on_floor else air_control
+		velocity.x = move_toward(velocity.x, target_velocity.x, acceleration * delta)
+		velocity.z = move_toward(velocity.z, target_velocity.z, acceleration * delta)
 	else:
-		velocity.x = move_toward(velocity.x, 0.0, speed)
-		velocity.z = move_toward(velocity.z, 0.0, speed)
+		var braking := ground_braking if was_on_floor else air_control
+		velocity.x = move_toward(velocity.x, 0.0, braking * delta)
+		velocity.z = move_toward(velocity.z, 0.0, braking * delta)
 
-	_update_motion_animation(input_dir)
+	if motion_library:
+		motion_library.set_crouched(is_crouching)
+		motion_library.set_aiming(is_aiming)
+		_update_motion_animation(animation_direction, speed)
+
 	_update_camera_obstruction(delta)
 	move_and_slide()
 
-	# Refine air/landing state after collision resolution.
 	if motion_library and motion_library.is_active():
 		if not is_on_floor():
 			if velocity.y > 0.15:
@@ -249,6 +313,10 @@ func _physics_process(delta: float) -> void:
 			"position": global_position,
 			"speed": horizontal_speed,
 			"running": is_running,
+			"crouched": is_crouching,
+			"aiming": is_aiming,
+			"dodging": dodge_timer > 0.0,
+			"root_motion": motion_library != null and motion_library.is_root_motion_active,
 			"grounded": is_on_floor(),
 			"fps": Engine.get_frames_per_second(),
 			"prompt": prompt,
@@ -257,13 +325,79 @@ func _physics_process(delta: float) -> void:
 			"motion_library": motion_library != null and motion_library.is_active()
 		})
 
-func _update_motion_animation(input_dir: Vector2) -> void:
+func _toggle_crouch() -> void:
+	if is_crouching:
+		if not _has_standing_clearance():
+			return
+		is_crouching = false
+	else:
+		is_crouching = true
+
+	if capsule_shape and collision_capsule:
+		capsule_shape.height = CROUCHED_CAPSULE_HEIGHT if is_crouching else STANDING_CAPSULE_HEIGHT
+		collision_capsule.position.y = capsule_shape.height * 0.5
+
+func _has_standing_clearance() -> bool:
+	if get_world_3d() == null:
+		return true
+	var standing_shape := CapsuleShape3D.new()
+	standing_shape.radius = capsule_shape.radius if capsule_shape else 0.32
+	standing_shape.height = STANDING_CAPSULE_HEIGHT
+	var query := PhysicsShapeQueryParameters3D.new()
+	query.shape = standing_shape
+	query.transform = global_transform * Transform3D(Basis.IDENTITY, Vector3(0.0, STANDING_CAPSULE_HEIGHT * 0.5, 0.0))
+	query.collision_mask = collision_mask
+	query.exclude = [get_rid()]
+	return get_world_3d().direct_space_state.intersect_shape(query, 8).is_empty()
+
+func _begin_dodge(input_dir: Vector2, movement_direction: Vector3) -> void:
+	var local := Vector3(input_dir.x, 0.0, input_dir.y)
+	if local.length_squared() < 0.01:
+		local = Vector3(0.0, 0.0, -1.0)
+	dodge_direction = (transform.basis * local).normalized()
+	dodge_timer = dodge_duration
+
 	if motion_library and motion_library.is_active():
-		var normalized_speed := Vector2(velocity.x, velocity.z).length() / maxf(running_speed, 0.01)
-		motion_library.set_motion(input_dir, normalized_speed)
+		var semantic: StringName
+		if absf(input_dir.x) > absf(input_dir.y):
+			semantic = &"dodge_right" if input_dir.x > 0.0 else &"dodge_left"
+		else:
+			semantic = &"dodge_forward" if input_dir.y < 0.0 else &"dodge_back"
+		motion_library.play_action(semantic)
+
+func _begin_turn_180() -> void:
+	if turn_180_active or not is_on_floor() or dodge_timer > 0.0:
+		return
+	turn_180_active = true
+	turn_180_elapsed = 0.0
+	turn_180_start_yaw = rotation.y
+	if motion_library and motion_library.is_active():
+		motion_library.play_action(&"turn_180")
+
+func _update_turn_180(delta: float) -> void:
+	if not turn_180_active:
+		return
+	turn_180_elapsed += delta
+	var t := clampf(turn_180_elapsed / maxf(turn_180_duration, 0.01), 0.0, 1.0)
+	var eased := t * t * (3.0 - 2.0 * t)
+	rotation.y = lerp_angle(turn_180_start_yaw, turn_180_start_yaw + PI, eased)
+	if t >= 1.0:
+		turn_180_active = false
+
+func _update_motion_animation(animation_direction: Vector2, target_speed: float) -> void:
+	if motion_library and motion_library.is_active():
+		var horizontal_speed := Vector2(velocity.x, velocity.z).length()
+		var normalized_speed := horizontal_speed / maxf(running_speed, 0.01)
+		motion_library.set_motion(
+			animation_direction,
+			normalized_speed,
+			is_running,
+			is_crouching,
+			is_aiming
+		)
 		return
 
-	# Safe fallback for models without a compatible animation set.
+	# Safe fallback for models without a compatible AnimationTree graph.
 	if animation_player == null:
 		return
 	if not is_on_floor():
@@ -272,10 +406,12 @@ func _update_motion_animation(input_dir: Vector2) -> void:
 		elif velocity.y < -0.15 and animation_player.has_animation(&"fall"):
 			_play_animation(&"fall")
 		return
-	if input_dir.length_squared() < 0.006:
+	if animation_direction.length_squared() < 0.006:
 		_play_animation(&"idle")
 	elif is_running:
 		_play_animation(&"running")
+	elif is_crouching and animation_player.has_animation(&"crouch"):
+		_play_animation(&"crouch")
 	else:
 		_play_animation(&"walking")
 
@@ -306,7 +442,7 @@ func _update_camera_obstruction(delta: float) -> void:
 	camera.position.z = lerpf(camera.position.z, target_distance, minf(delta * camera_smoothness, 1.0))
 	camera.fov = lerpf(camera.fov, 78.0 if is_running else 72.0, minf(delta * 4.0, 1.0))
 
-	# Hard floor guard: camera world-space Y can never pass below the ground plane.
+	# Camera world-space Y is clamped every frame, even when aimed or crouched.
 	var camera_world_position := camera.global_position
 	if camera_world_position.y < CAMERA_MIN_WORLD_Y:
 		camera_world_position.y = CAMERA_MIN_WORLD_Y
