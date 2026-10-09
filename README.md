@@ -1,44 +1,55 @@
 # Openworld Simulation v2.1
 
-A browser-based third-person **open-world sandbox simulation** built with React, Three.js, and Vite. The project is a playable real-time runtime, not a scene editor.
+**A playable third-person open-world sandbox built in Godot 4.6.1.** The primary runtime is a 3D game, not an editor or scene-builder UI.
 
-## Runtime focus
+## v2.1 runtime
 
-- Third-person movement, sprinting, jumping, camera orbit, and character animation states.
-- Real-time world traversal with collidable sandbox props and a minimap.
-- Dynamic atmosphere controls for wind particles, lighting, and bloom.
-- Adaptive keyboard/mouse, gamepad, and touch controls.
-- Compact runtime telemetry for FPS, movement state, surface, and input mode.
-- Simulation settings persist locally in the browser.
+- Third-person CharacterBody3D controller with acceleration, jumping, sprinting, and mouse-orbit camera.
+- Procedurally assembled outdoor frontier with distant ridges, forest clusters, rocks, trails, an outpost, and supply pads.
+- Physically collidable terrain, trees, props, and spawned rigid-body crates.
+- Interactable supply caches, weather relay, and checkpoint beacon.
+- Daylight drift, atmosphere/fog toggle, checkpoint respawn, and full sandbox reset.
+- Minimal in-world HUD with FPS, speed, position, objective, interaction prompt, and keyboard hints.
+- Godot Compatibility renderer, targeting WebGL 2.0 for the browser build.
 
 ## Controls
 
-| Action | Keyboard / mouse |
+| Action | Input |
 | --- | --- |
-| Move | `WASD` or arrow keys |
-| Sprint | Hold `Shift` |
-| Jump | `Space` |
-| Character actions | `F` / `K` / `G` |
-| Orbit camera | Drag the mouse |
-| Immersive camera control | Select **Enter World** to capture the pointer; press `Esc` to release |
+| Move | W A S D or arrow keys |
+| Look around | Click the game, then move mouse |
+| Release mouse | Esc |
+| Sprint | Hold Shift |
+| Jump | Space |
+| Interact | E near a cache, relay, or beacon |
+| Spawn a physics crate | B |
+| Reset sandbox/player | R |
 
-Gamepad controls are detected automatically. Touch devices receive an on-screen dual-stick controller.
+The web version uses a single-threaded Godot export for broad hosting compatibility. It does not need SharedArrayBuffer cross-origin isolation headers. Browser support requires WebAssembly and WebGL 2.0.
 
-## Development
+## Open the Godot project
 
-Requires Bun.
+Install **Godot 4.6.1 Standard** and its matching export templates. Open godot/project.godot in the Godot editor.
 
-```sh
-bun install
-bun run dev
-bun run lint
-bun run build
-```
+From the repository root:
 
-## GitHub Pages
+- **bun run dev** — run the game in Godot.
+- **bun run editor:game** — open the Godot editor for project development.
+- **bun run build** — export a Web build to dist/.
+- **bun run lint** — run a headless Godot project scan.
+- **bun run dev:prototype** — launch the retained legacy React/Three.js prototype.
+- **bun run build:prototype** — build that legacy prototype separately.
 
-Pushes to `main` build the static app and deploy `dist/` through GitHub Actions. The Vite base path is `/as/` in the Actions environment and remains `/` for local development.
+The React/Three.js implementation in src/ is retained as a reference prototype; it is not the v2.1 Pages runtime.
 
-## Scope of v2.1
+## Automatic GitHub Pages deployment
 
-v2.1 prioritizes the **playable sandbox runtime**: movement, camera feel, world traversal, environmental motion, player feedback, and quick simulation tuning. Editor-oriented screens such as scene graph browsing, code export, and requirements documentation are intentionally not part of the user-facing experience.
+Every push to main and manual workflow dispatch runs the deployment workflow. GitHub Actions installs Godot 4.6.1 plus Web export templates, scans and launches the project headlessly, exports the project in godot/ to dist/, checks that the HTML, WebAssembly, and PCK payload exist, then publishes dist/ using the GitHub Pages deployment artifact workflow.
+
+Live game: https://akcizur.github.io/as/
+
+If Pages has not been configured for this repository yet, select **Settings → Pages → Build and deployment → Source: GitHub Actions**.
+
+## Scope
+
+v2.1 is focused on the playable open-world sandbox runtime. There is no in-game scene editor, code export panel, editor mode, or editor-first landing experience. New work should deepen traversal, world interaction, physics, atmosphere, and actual gameplay systems.
