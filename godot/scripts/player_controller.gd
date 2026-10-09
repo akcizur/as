@@ -99,6 +99,10 @@ func reset_motion_state() -> void:
 		camera_pivot.rotation.x = camera_pitch
 	if camera:
 		camera.position = Vector3(0.0, 0.22, CAMERA_DISTANCE)
+	if motion_library and motion_library.has_method("reset_motion"):
+		motion_library.call("reset_motion")
+	elif animation_player and animation_player.has_animation(&"idle"):
+		_play_animation(&"idle")
 
 func _create_collision_capsule() -> void:
 	# Invisible authoritative collision shape; visuals never participate in physics.
