@@ -18,7 +18,7 @@ func _ready() -> void:
 	var top_left := _make_panel(overlay, Control.PRESET_TOP_LEFT, Vector2(18.0, 18.0), Vector2(318.0, 110.0))
 	var title := _make_label("OPENWORLD  /  SIMULATION", 15, Color(0.96, 0.72, 0.28))
 	top_left.add_child(title)
-	var subtitle := _make_label("V2.1  ·  GODOT 4  ·  SANDBOX RUNTIME", 10, Color(0.58, 0.69, 0.79))
+	var subtitle := _make_label("V2.2  ·  MIXAMO LOCOMOTION  ·  GODOT 4", 10, Color(0.58, 0.69, 0.79))
 	top_left.add_child(subtitle)
 	objective_label = _make_label("OBJECTIVE   Explore the frontier", 12, Color(0.9, 0.94, 0.98))
 	top_left.add_child(objective_label)

@@ -1,16 +1,19 @@
-# Openworld Simulation v2.1
+# Openworld Simulation v2.2
 
-**A playable third-person open-world sandbox built in Godot 4.6.1.** The primary runtime is a 3D game, not an editor or scene-builder UI.
+**A playable third-person open-world sandbox built with Godot 4.6.1 and deployed to GitHub Pages.** The browser build is exported to WebAssembly using the Godot Compatibility renderer (WebGL 2.0).
 
-## v2.1 runtime
+## Runtime
 
-- Third-person CharacterBody3D controller with acceleration, jumping, sprinting, and mouse-orbit camera.
-- Procedurally assembled outdoor frontier with distant ridges, forest clusters, rocks, trails, an outpost, and supply pads.
-- Physically collidable terrain, trees, props, and spawned rigid-body crates.
+- Third-person player rendered with the repository's animated Mixamo GLB model.
+- Invisible `CharacterBody3D` capsule for reliable character collision; visuals and physics remain separate.
+- Camera-relative movement with acceleration, air control, smooth direction changes, sprinting, and jumping.
+- Blended idle, walking, and running animations.
+- Orbit camera pitch limits, collision raycast, smooth camera recovery, and a hard world-space floor guard.
+- Procedurally assembled frontier with hills, forest clusters, rocks, trails, an outpost, and supply pads.
+- Collidable terrain, trees, props, and spawned rigid-body crates.
 - Interactable supply caches, weather relay, and checkpoint beacon.
 - Daylight drift, atmosphere/fog toggle, checkpoint respawn, and full sandbox reset.
 - Minimal in-world HUD with FPS, speed, position, objective, interaction prompt, and keyboard hints.
-- Godot Compatibility renderer, targeting WebGL 2.0 for the browser build.
 
 ## Controls
 
@@ -25,31 +28,34 @@
 | Spawn a physics crate | B |
 | Reset sandbox/player | R |
 
-The web version uses a single-threaded Godot export for broad hosting compatibility. It does not need SharedArrayBuffer cross-origin isolation headers. Browser support requires WebAssembly and WebGL 2.0.
+The web version uses a single-threaded Godot export for broad hosting compatibility and does not require `SharedArrayBuffer` cross-origin isolation headers. Browser support requires WebAssembly and WebGL 2.0.
 
 ## Open the Godot project
 
-Install **Godot 4.6.1 Standard** and its matching export templates. Open godot/project.godot in the Godot editor.
+Install **Godot 4.6.1 Standard** and its matching export templates. Open `godot/project.godot` in the Godot editor.
 
 From the repository root:
 
-- **bun run dev** — run the game in Godot.
-- **bun run editor:game** — open the Godot editor for project development.
-- **bun run build** — export a Web build to dist/.
-- **bun run lint** — run a headless Godot project scan.
-- **bun run dev:prototype** — launch the retained legacy React/Three.js prototype.
-- **bun run build:prototype** — build that legacy prototype separately.
-
-The React/Three.js implementation in src/ is retained as a reference prototype; it is not the v2.1 Pages runtime.
+- **`bun run dev`** — run the game in Godot.
+- **`bun run editor:game`** — open the Godot editor for project development.
+- **`bun run build`** — export the project in `godot/` to `dist/`.
+- **`bun run lint`** — scan the Godot project headlessly.
+- **`bun run dev:prototype`** — launch the retained React/Three.js prototype.
+- **`bun run build:prototype`** — build the legacy prototype separately.
+- **`godot/CONTROLLER.md`** — controller architecture, animation names, collision rules, and tuning controls.
 
 ## Automatic GitHub Pages deployment
 
-Every push to main and manual workflow dispatch runs the deployment workflow. GitHub Actions installs Godot 4.6.1 plus Web export templates, scans and launches the project headlessly, exports the project in godot/ to dist/, checks that the HTML, WebAssembly, and PCK payload exist, then publishes dist/ using the GitHub Pages deployment artifact workflow.
+Every push to `main` and manual workflow dispatch runs the deployment workflow. GitHub Actions installs Godot 4.6.1 plus matching Web export templates, scans and smoke-tests the game, exports it to `dist/`, checks for the HTML, WebAssembly, and PCK payload, and publishes the artifact through GitHub Pages.
 
 Live game: https://akcizur.github.io/as/
 
 If Pages has not been configured for this repository yet, select **Settings → Pages → Build and deployment → Source: GitHub Actions**.
 
-## Scope
+## Controller reference
 
-v2.1 is focused on the playable open-world sandbox runtime. There is no in-game scene editor, code export panel, editor mode, or editor-first landing experience. New work should deepen traversal, world interaction, physics, atmosphere, and actual gameplay systems.
+The third-person controller's design is inspired by [MaximeCrp/third-person-controller-boilerplate](https://github.com/MaximeCrp/third-person-controller-boilerplate), particularly its Mixamo animation workflow, smooth visual rotation, and bounded orbit camera. The current game-specific implementation is in `godot/scripts/player_controller.gd`; the referenced project is not copied wholesale.
+
+## Runtime boundaries
+
+The Godot project is the production GitHub Pages runtime. The React/Three.js implementation in `src/` is retained as a separate prototype and is not the deployed game. New gameplay systems should integrate with `godot/scripts/main.gd` for world actions or the player's telemetry signal for UI updates instead of coupling UI code to the physics loop.

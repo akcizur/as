@@ -1,4 +1,6 @@
 # Product Requirements Document (PRD) v2.0 / v2.1
+> **Runtime of record — v2.2 (2026-10-09):** The deployed GitHub Pages game is the Godot 4.6.1 project in `godot/`. Its production player controller uses the existing `mixamo_base.glb` asset with an invisible physics capsule, camera-relative acceleration, blended locomotion, orbit pitch limits, and camera obstruction handling. Sections that describe the React/Three.js inspector and Single-File AIO export document the retained prototype under `src/`; they are not claims about the deployed Pages runtime.
+
 ## Third-Person Controller Web Engine & Multi-Input Sandbox
 
 **Verze:** 2.0 / 2.1 (kompletní aktualizace + v2.1 rozšíření)

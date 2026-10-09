@@ -2,85 +2,94 @@ extends CharacterBody3D
 
 signal telemetry_changed(data: Dictionary)
 
-@export var walk_speed: float = 5.6
-@export var sprint_speed: float = 9.2
-@export var ground_acceleration: float = 22.0
-@export var air_acceleration: float = 6.0
-@export var jump_velocity: float = 7.0
+const CHARACTER_SCENE: PackedScene = preload("res://assets/models/mixamo_base.glb")
+const CAMERA_DISTANCE: float = 4.8
+const CAMERA_MIN_DISTANCE: float = 0.72
+const CAMERA_MIN_WORLD_Y: float = 0.35
+const ANIMATION_BLEND: float = 0.18
+
+@export_group("Locomotion")
+@export var walk_speed: float = 3.6
+@export var sprint_speed: float = 6.8
+@export var ground_acceleration: float = 20.0
+@export var air_acceleration: float = 7.0
+@export var ground_deceleration: float = 24.0
+@export var jump_velocity: float = 5.6
+@export var turn_smoothness: float = 12.0
+
+@export_group("Camera")
 @export var mouse_sensitivity: float = 0.0022
+@export var camera_smoothness: float = 18.0
+@export var camera_pitch_min: float = -1.0
+@export var camera_pitch_max: float = 0.24
 
 var camera_pivot: Node3D
 var camera: Camera3D
 var body_visual: Node3D
+var animation_player: AnimationPlayer
+
 var camera_pitch: float = -0.12
 var telemetry_clock: float = 0.0
 var is_sprinting: bool = false
+var current_animation: StringName = &""
+var gravity_strength: float = float(ProjectSettings.get_setting("physics/3d/default_gravity"))
 
 func _ready() -> void:
 	name = "Player"
 	add_to_group("player")
 	floor_snap_length = 0.3
 	floor_max_angle = deg_to_rad(48.0)
+	floor_constant_speed = true
 
+	_create_collision_capsule()
+	_create_character_visual()
+	_create_camera()
+
+func _create_collision_capsule() -> void:
+	# This collider is intentionally invisible. It is the authoritative player physics shape.
 	var collider := CollisionShape3D.new()
+	collider.name = "InvisibleCollisionCapsule"
 	var capsule := CapsuleShape3D.new()
-	capsule.radius = 0.38
+	capsule.radius = 0.32
 	capsule.height = 1.8
 	collider.shape = capsule
 	collider.position.y = 0.9
 	add_child(collider)
 
+func _create_character_visual() -> void:
 	body_visual = Node3D.new()
-	body_visual.name = "BodyVisual"
+	body_visual.name = "Visuals"
 	add_child(body_visual)
 
-	var body_mesh := MeshInstance3D.new()
-	body_mesh.name = "Suit"
-	var capsule_mesh := CapsuleMesh.new()
-	capsule_mesh.radius = 0.34
-	capsule_mesh.height = 1.55
-	body_mesh.mesh = capsule_mesh
-	body_mesh.position.y = 0.92
-	var suit_material := StandardMaterial3D.new()
-	suit_material.albedo_color = Color(0.09, 0.63, 0.72)
-	suit_material.metallic = 0.16
-	suit_material.roughness = 0.36
-	body_mesh.material_override = suit_material
-	body_visual.add_child(body_mesh)
+	var character := CHARACTER_SCENE.instantiate()
+	character.name = "mixamo_base"
+	body_visual.add_child(character)
 
-	var head := MeshInstance3D.new()
-	var head_mesh := SphereMesh.new()
-	head_mesh.radius = 0.22
-	head_mesh.height = 0.44
-	head.mesh = head_mesh
-	head.position = Vector3(0.0, 1.83, 0.0)
-	var head_material := StandardMaterial3D.new()
-	head_material.albedo_color = Color(0.78, 0.68, 0.55)
-	head_material.roughness = 0.8
-	head.material_override = head_material
-	body_visual.add_child(head)
+	# GLB origin is kept at the player's feet; the capsule stays 1.8 m tall.
+	if character is Node3D:
+		(character as Node3D).position = Vector3.ZERO
 
-	var pack := MeshInstance3D.new()
-	var pack_mesh := BoxMesh.new()
-	pack_mesh.size = Vector3(0.48, 0.52, 0.2)
-	pack.mesh = pack_mesh
-	pack.position = Vector3(0.0, 1.03, 0.27)
-	var pack_material := StandardMaterial3D.new()
-	pack_material.albedo_color = Color(0.08, 0.15, 0.22)
-	pack_material.roughness = 0.8
-	pack.material_override = pack_material
-	body_visual.add_child(pack)
+	animation_player = character.find_child("AnimationPlayer", true, false) as AnimationPlayer
+	if animation_player == null:
+		push_warning("Mixamo model loaded, but no AnimationPlayer was found.")
+		return
 
+	if animation_player.has_animation(&"idle"):
+		_play_animation(&"idle")
+	else:
+		push_warning("Mixamo model is missing the expected 'idle' animation.")
+
+func _create_camera() -> void:
 	camera_pivot = Node3D.new()
 	camera_pivot.name = "CameraPivot"
-	camera_pivot.position.y = 1.42
+	camera_pivot.position.y = 1.45
 	camera_pivot.rotation.x = camera_pitch
 	add_child(camera_pivot)
 
 	camera = Camera3D.new()
 	camera.name = "ThirdPersonCamera"
-	camera.position = Vector3(0.0, 0.22, 5.2)
-	camera.fov = 76.0
+	camera.position = Vector3(0.0, 0.22, CAMERA_DISTANCE)
+	camera.fov = 72.0
 	camera.near = 0.08
 	camera.far = 320.0
 	camera.current = true
@@ -93,35 +102,55 @@ func _unhandled_input(event: InputEvent) -> void:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	elif event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		camera_pivot.rotation.y -= event.relative.x * mouse_sensitivity
-		camera_pitch = clampf(camera_pitch - event.relative.y * mouse_sensitivity, -0.72, 0.32)
+
+		# Moving the mouse up raises the camera and angles it down toward the player.
+		camera_pitch = clampf(
+			camera_pitch + event.relative.y * mouse_sensitivity,
+			camera_pitch_min,
+			camera_pitch_max
+		)
 		camera_pivot.rotation.x = camera_pitch
 
 func _physics_process(delta: float) -> void:
 	var input_vector := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
-	var camera_yaw := camera_pivot.rotation.y
-	var move_direction := Vector3(input_vector.x, 0.0, input_vector.y).rotated(Vector3.UP, camera_yaw)
+	var move_direction := Vector3(input_vector.x, 0.0, input_vector.y)
+	move_direction = move_direction.rotated(Vector3.UP, camera_pivot.rotation.y)
 	move_direction.y = 0.0
-	move_direction = move_direction.normalized()
+	if move_direction.length_squared() > 1.0:
+		move_direction = move_direction.normalized()
 
-	is_sprinting = Input.is_action_pressed("run") and input_vector.length() > 0.05
+	is_sprinting = Input.is_action_pressed("run") and input_vector.length_squared() > 0.01
 	var target_speed := sprint_speed if is_sprinting else walk_speed
 	var acceleration := ground_acceleration if is_on_floor() else air_acceleration
 
-	velocity.x = move_toward(velocity.x, move_direction.x * target_speed, acceleration * delta)
-	velocity.z = move_toward(velocity.z, move_direction.z * target_speed, acceleration * delta)
+	# Vector acceleration preserves momentum through smooth starts and direction changes.
+	var horizontal_velocity := Vector3(velocity.x, 0.0, velocity.z)
+	var target_velocity := move_direction * target_speed
+	if input_vector.length_squared() > 0.01:
+		horizontal_velocity = horizontal_velocity.move_toward(target_velocity, acceleration * delta)
+	else:
+		horizontal_velocity = horizontal_velocity.move_toward(Vector3.ZERO, ground_deceleration * delta)
+	velocity.x = horizontal_velocity.x
+	velocity.z = horizontal_velocity.z
 
 	if not is_on_floor():
-		velocity.y -= 22.0 * delta
+		velocity.y -= gravity_strength * delta
 	elif velocity.y < 0.0:
 		velocity.y = -0.2
 
 	if is_on_floor() and Input.is_action_just_pressed("jump"):
 		velocity.y = jump_velocity
 
-	if move_direction.length() > 0.08:
+	if move_direction.length_squared() > 0.006:
 		var desired_yaw := atan2(-move_direction.x, -move_direction.z)
-		body_visual.rotation.y = lerp_angle(body_visual.rotation.y, desired_yaw, minf(delta * 12.0, 1.0))
+		body_visual.rotation.y = lerp_angle(
+			body_visual.rotation.y,
+			desired_yaw,
+			minf(delta * turn_smoothness, 1.0)
+		)
 
+	_update_locomotion_animation(move_direction)
+	_update_camera_obstruction(delta)
 	move_and_slide()
 
 	if global_position.y < -18.0:
@@ -160,3 +189,58 @@ func _physics_process(delta: float) -> void:
 			"fps": Engine.get_frames_per_second(),
 			"prompt": prompt
 		})
+
+func _update_locomotion_animation(move_direction: Vector3) -> void:
+	if animation_player == null:
+		return
+
+	var grounded := is_on_floor()
+	var moving := move_direction.length_squared() > 0.006
+	if not grounded:
+		if velocity.y > 0.15 and animation_player.has_animation(&"jump"):
+			_play_animation(&"jump")
+		elif velocity.y < -0.15 and animation_player.has_animation(&"fall"):
+			_play_animation(&"fall")
+		elif moving:
+			_play_animation(&"running" if is_sprinting else &"walking")
+		return
+
+	if not moving:
+		_play_animation(&"idle")
+	elif is_sprinting:
+		_play_animation(&"running")
+	else:
+		_play_animation(&"walking")
+
+func _play_animation(animation_name: StringName) -> void:
+	if animation_player == null or not animation_player.has_animation(animation_name):
+		return
+	if current_animation == animation_name and animation_player.is_playing():
+		return
+	animation_player.play(animation_name, ANIMATION_BLEND)
+	current_animation = animation_name
+
+func _update_camera_obstruction(delta: float) -> void:
+	if camera == null or camera_pivot == null:
+		return
+
+	var origin := camera_pivot.global_position
+	var destination := camera_pivot.to_global(Vector3(0.0, 0.22, CAMERA_DISTANCE))
+	var query := PhysicsRayQueryParameters3D.create(origin, destination)
+	query.exclude = [get_rid()]
+	query.collision_mask = 1
+
+	var target_distance := CAMERA_DISTANCE
+	var space_state := get_world_3d().direct_space_state
+	var hit := space_state.intersect_ray(query)
+	if not hit.is_empty():
+		target_distance = clampf(origin.distance_to(hit.position) - 0.2, CAMERA_MIN_DISTANCE, CAMERA_DISTANCE)
+
+	camera.position.z = lerpf(camera.position.z, target_distance, minf(delta * camera_smoothness, 1.0))
+	camera.fov = lerpf(camera.fov, 78.0 if is_sprinting else 72.0, minf(delta * 4.0, 1.0))
+
+	# Hard floor guard: the camera's world-space Y can never pass below the ground plane.
+	var camera_world_position := camera.global_position
+	if camera_world_position.y < CAMERA_MIN_WORLD_Y:
+		camera_world_position.y = CAMERA_MIN_WORLD_Y
+		camera.global_position = camera_world_position
