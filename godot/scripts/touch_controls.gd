@@ -14,13 +14,13 @@ func _ready() -> void:
 	if not DisplayServer.is_touchscreen_available():
 		queue_free()
 		return
-	
+
 	layer = 20
 	controls_root = Control.new()
 	controls_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	controls_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(controls_root)
-	
+
 	_create_look_zone()
 	_create_joystick()
 	_create_action_buttons()
@@ -55,23 +55,27 @@ func _create_joystick() -> void:
 	joystick.changed.connect(func(value: Vector2): move_changed.emit(value))
 
 func _create_action_buttons() -> void:
-	_create_button("JUMP", "jump", Vector2(-188.0, -164.0), Vector2(92.0, 58.0))
-	_create_button("RUN", "run", Vector2(-292.0, -94.0), Vector2(92.0, 52.0))
-	_create_button("USE", "interact", Vector2(-188.0, -92.0), Vector2(92.0, 52.0))
-	_create_button("RESET", "reset_player", Vector2(-292.0, -32.0), Vector2(92.0, 42.0))
+	# Three compact rows keep movement/look zones clear on phone and tablet screens.
+	_create_button("DODGE", "dodge", Vector2(-254.0, -151.0), Vector2(78.0, 43.0))
+	_create_button("TURN 180", "turn_180", Vector2(-168.0, -151.0), Vector2(78.0, 43.0))
+	_create_button("JUMP", "jump", Vector2(-82.0, -151.0), Vector2(78.0, 43.0))
+	_create_button("SPRINT", "run", Vector2(-254.0, -101.0), Vector2(78.0, 43.0))
+	_create_button("CROUCH", "crouch", Vector2(-168.0, -101.0), Vector2(78.0, 43.0))
+	_create_button("AIM", "aim", Vector2(-82.0, -101.0), Vector2(78.0, 43.0))
+	_create_button("USE", "interact", Vector2(-254.0, -51.0), Vector2(78.0, 43.0))
+	_create_button("RESET", "reset_player", Vector2(-168.0, -51.0), Vector2(78.0, 43.0))
 
 func _create_button(label: String, action: StringName, offset: Vector2, button_size: Vector2) -> void:
 	var button := Button.new()
 	button.text = label
 	button.custom_minimum_size = button_size
-	button.position = offset
 	button.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
 	button.offset_left = offset.x
 	button.offset_top = offset.y
 	button.offset_right = offset.x + button_size.x
 	button.offset_bottom = offset.y + button_size.y
 	button.mouse_filter = Control.MOUSE_FILTER_STOP
-	button.add_theme_font_size_override("font_size", 14)
+	button.add_theme_font_size_override("font_size", 11)
 	button.modulate = Color(1.0, 1.0, 1.0, 0.78)
 	controls_root.add_child(button)
 	button.button_down.connect(func(): Input.action_press(action))
