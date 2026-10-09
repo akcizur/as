@@ -51,6 +51,14 @@ jobs:
             exit 1
           fi
 
+      - name: Assert core gameplay runtime
+        shell: bash
+        run: |
+          set -o pipefail
+          godot --headless --path godot --script res://scripts/runtime_smoke_test.gd 2>&1 | tee /tmp/gameplay-runtime-test.log
+          grep -q "GAMEPLAY_RUNTIME_TEST_BEGIN" /tmp/gameplay-runtime-test.log
+          grep -q "GAMEPLAY_RUNTIME_TEST_END" /tmp/gameplay-runtime-test.log
+
       - name: Build WebAssembly export
         run: node scripts/build-web.mjs
 
